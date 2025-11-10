@@ -6,6 +6,7 @@
       "fields" : [
         ["tmp", 32, false],
         ["tmp_0", 32, false],
+        ["tmp_1", 32, false],
         ["metadata.dst_ipv4", 32, false]
       ]
     },
@@ -81,6 +82,20 @@
         ["srcAddr", 32, false],
         ["dstAddr", 32, false]
       ]
+    },
+    {
+      "name" : "ipv6_t",
+      "id" : 6,
+      "fields" : [
+        ["version", 4, false],
+        ["trafficClass", 8, false],
+        ["flowLabel", 20, false],
+        ["payLoadLen", 16, false],
+        ["nextHdr", 8, false],
+        ["hopLimit", 8, false],
+        ["srcAddr", 128, false],
+        ["dstAddr", 128, false]
+      ]
     }
   ],
   "headers" : [
@@ -123,6 +138,13 @@
       "name" : "ipv4",
       "id" : 5,
       "header_type" : "ipv4_t",
+      "metadata" : false,
+      "pi_omit" : true
+    },
+    {
+      "name" : "ipv6",
+      "id" : 6,
+      "header_type" : "ipv6_t",
       "metadata" : false,
       "pi_omit" : true
     }
@@ -174,6 +196,12 @@
               "value" : "0x0800",
               "mask" : null,
               "next_state" : "parse_ipv4"
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x86dd",
+              "mask" : null,
+              "next_state" : "parse_ipv6"
             },
             {
               "type" : "hexstr",
@@ -290,6 +318,30 @@
             }
           ],
           "transition_key" : []
+        },
+        {
+          "name" : "parse_ipv6",
+          "id" : 4,
+          "parser_ops" : [
+            {
+              "parameters" : [
+                {
+                  "type" : "regular",
+                  "value" : "ipv6"
+                }
+              ],
+              "op" : "extract"
+            }
+          ],
+          "transitions" : [
+            {
+              "type" : "default",
+              "value" : null,
+              "mask" : null,
+              "next_state" : null
+            }
+          ],
+          "transition_key" : []
         }
       ]
     }
@@ -301,11 +353,11 @@
       "id" : 0,
       "source_info" : {
         "filename" : "basic.p4",
-        "line" : 283,
+        "line" : 327,
         "column" : 8,
         "source_fragment" : "MyDeparser"
       },
-      "order" : ["ethernet", "myTunnel", "arp", "ipv4"],
+      "order" : ["ethernet", "myTunnel", "arp", "ipv4", "ipv6"],
       "primitives" : []
     }
   ],
@@ -316,7 +368,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "basic.p4",
-        "line" : 136,
+        "line" : 155,
         "column" : 58,
         "source_fragment" : "ingressTunnelCounter"
       },
@@ -328,7 +380,7 @@
       "id" : 1,
       "source_info" : {
         "filename" : "basic.p4",
-        "line" : 137,
+        "line" : 156,
         "column" : 58,
         "source_fragment" : "egressTunnelCounter"
       },
@@ -343,7 +395,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "basic.p4",
-        "line" : 260,
+        "line" : 304,
         "column" : 8,
         "source_fragment" : "update_checksum( ..."
       },
@@ -405,26 +457,10 @@
       "primitives" : []
     },
     {
-      "name" : "MyIngress.drop",
+      "name" : "NoAction",
       "id" : 1,
       "runtime_data" : [],
-      "primitives" : [
-        {
-          "op" : "mark_to_drop",
-          "parameters" : [
-            {
-              "type" : "header",
-              "value" : "standard_metadata"
-            }
-          ],
-          "source_info" : {
-            "filename" : "basic.p4",
-            "line" : 140,
-            "column" : 8,
-            "source_fragment" : "mark_to_drop(standard_metadata)"
-          }
-        }
-      ]
+      "primitives" : []
     },
     {
       "name" : "MyIngress.drop",
@@ -441,7 +477,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 140,
+            "line" : 159,
             "column" : 8,
             "source_fragment" : "mark_to_drop(standard_metadata)"
           }
@@ -463,7 +499,51 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 140,
+            "line" : 159,
+            "column" : 8,
+            "source_fragment" : "mark_to_drop(standard_metadata)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "MyIngress.drop",
+      "id" : 4,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "mark_to_drop",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "standard_metadata"
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 159,
+            "column" : 8,
+            "source_fragment" : "mark_to_drop(standard_metadata)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "MyIngress.drop",
+      "id" : 5,
+      "runtime_data" : [],
+      "primitives" : [
+        {
+          "op" : "mark_to_drop",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "standard_metadata"
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 159,
             "column" : 8,
             "source_fragment" : "mark_to_drop(standard_metadata)"
           }
@@ -472,7 +552,7 @@
     },
     {
       "name" : "MyIngress.ipv4_forward",
-      "id" : 4,
+      "id" : 6,
       "runtime_data" : [
         {
           "name" : "dstAddr",
@@ -498,7 +578,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 144,
+            "line" : 163,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = port"
           }
@@ -517,7 +597,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 145,
+            "line" : 164,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr"
           }
@@ -536,7 +616,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 146,
+            "line" : 165,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
           }
@@ -578,7 +658,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 147,
+            "line" : 166,
             "column" : 8,
             "source_fragment" : "hdr.ipv4.ttl = hdr.ipv4.ttl - 1"
           }
@@ -586,8 +666,123 @@
       ]
     },
     {
+      "name" : "MyIngress.ipv6_forward",
+      "id" : 7,
+      "runtime_data" : [
+        {
+          "name" : "dstAddr",
+          "bitwidth" : 48
+        },
+        {
+          "name" : "port",
+          "bitwidth" : 9
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["standard_metadata", "egress_spec"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 1
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 170,
+            "column" : 8,
+            "source_fragment" : "standard_metadata.egress_spec = port"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "srcAddr"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 171,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.srcAddr = hdr.ethernet.dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "dstAddr"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 172,
+            "column" : 8,
+            "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ipv6", "hopLimit"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "+",
+                      "left" : {
+                        "type" : "field",
+                        "value" : ["ipv6", "hopLimit"]
+                      },
+                      "right" : {
+                        "type" : "hexstr",
+                        "value" : "0xff"
+                      }
+                    }
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 173,
+            "column" : 8,
+            "source_fragment" : "hdr.ipv6.hopLimit = hdr.ipv6.hopLimit - 1"
+          }
+        }
+      ]
+    },
+    {
       "name" : "MyIngress.myTunnel_ingress",
-      "id" : 5,
+      "id" : 8,
       "runtime_data" : [
         {
           "name" : "dst_id",
@@ -605,7 +800,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 154,
+            "line" : 180,
             "column" : 8,
             "source_fragment" : "hdr.myTunnel.setValid()"
           }
@@ -624,7 +819,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 155,
+            "line" : 181,
             "column" : 8,
             "source_fragment" : "hdr.myTunnel.dst_id = dst_id"
           }
@@ -643,7 +838,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 156,
+            "line" : 182,
             "column" : 8,
             "source_fragment" : "hdr.myTunnel.proto_id = hdr.ethernet.etherType"
           }
@@ -694,7 +889,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 158,
+            "line" : 184,
             "column" : 35,
             "source_fragment" : "(bit<32>) hdr.myTunnel.dst_id"
           }
@@ -713,7 +908,142 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 158,
+            "line" : 184,
+            "column" : 8,
+            "source_fragment" : "ingressTunnelCounter.count((bit<32>) hdr.myTunnel.dst_id)"
+          }
+        }
+      ]
+    },
+    {
+      "name" : "MyIngress.myTunnel_ingress",
+      "id" : 9,
+      "runtime_data" : [
+        {
+          "name" : "dst_id",
+          "bitwidth" : 16
+        }
+      ],
+      "primitives" : [
+        {
+          "op" : "add_header",
+          "parameters" : [
+            {
+              "type" : "header",
+              "value" : "myTunnel"
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 180,
+            "column" : 8,
+            "source_fragment" : "hdr.myTunnel.setValid()"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["myTunnel", "dst_id"]
+            },
+            {
+              "type" : "runtime_data",
+              "value" : 0
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 181,
+            "column" : 8,
+            "source_fragment" : "hdr.myTunnel.dst_id = dst_id"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["myTunnel", "proto_id"]
+            },
+            {
+              "type" : "field",
+              "value" : ["ethernet", "etherType"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 182,
+            "column" : 8,
+            "source_fragment" : "hdr.myTunnel.proto_id = hdr.ethernet.etherType"
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["ethernet", "etherType"]
+            },
+            {
+              "type" : "hexstr",
+              "value" : "0x1212"
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 6,
+            "column" : 30,
+            "source_fragment" : "0x1212; ..."
+          }
+        },
+        {
+          "op" : "assign",
+          "parameters" : [
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_0"]
+            },
+            {
+              "type" : "expression",
+              "value" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "&",
+                  "left" : {
+                    "type" : "local",
+                    "value" : 0
+                  },
+                  "right" : {
+                    "type" : "hexstr",
+                    "value" : "0xffffffff"
+                  }
+                }
+              }
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 184,
+            "column" : 35,
+            "source_fragment" : "(bit<32>) hdr.myTunnel.dst_id"
+          }
+        },
+        {
+          "op" : "count",
+          "parameters" : [
+            {
+              "type" : "counter_array",
+              "value" : "MyIngress.ingressTunnelCounter"
+            },
+            {
+              "type" : "field",
+              "value" : ["scalars", "tmp_0"]
+            }
+          ],
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 184,
             "column" : 8,
             "source_fragment" : "ingressTunnelCounter.count((bit<32>) hdr.myTunnel.dst_id)"
           }
@@ -722,7 +1052,7 @@
     },
     {
       "name" : "MyIngress.myTunnel_forward",
-      "id" : 6,
+      "id" : 10,
       "runtime_data" : [
         {
           "name" : "port",
@@ -744,7 +1074,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 176,
+            "line" : 216,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = port"
           }
@@ -753,7 +1083,7 @@
     },
     {
       "name" : "MyIngress.myTunnel_egress",
-      "id" : 7,
+      "id" : 11,
       "runtime_data" : [
         {
           "name" : "dstAddr",
@@ -779,7 +1109,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 180,
+            "line" : 220,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = port"
           }
@@ -798,7 +1128,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 181,
+            "line" : 221,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.dstAddr = dstAddr"
           }
@@ -817,7 +1147,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 182,
+            "line" : 222,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.etherType = hdr.myTunnel.proto_id"
           }
@@ -827,7 +1157,7 @@
           "parameters" : [
             {
               "type" : "field",
-              "value" : ["scalars", "tmp_0"]
+              "value" : ["scalars", "tmp_1"]
             },
             {
               "type" : "expression",
@@ -849,7 +1179,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 183,
+            "line" : 223,
             "column" : 34,
             "source_fragment" : "(bit<32>) hdr.myTunnel.dst_id"
           }
@@ -863,12 +1193,12 @@
             },
             {
               "type" : "field",
-              "value" : ["scalars", "tmp_0"]
+              "value" : ["scalars", "tmp_1"]
             }
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 183,
+            "line" : 223,
             "column" : 8,
             "source_fragment" : "egressTunnelCounter.count((bit<32>) hdr.myTunnel.dst_id)"
           }
@@ -883,7 +1213,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 184,
+            "line" : 224,
             "column" : 8,
             "source_fragment" : "hdr.myTunnel.setInvalid()"
           }
@@ -892,7 +1222,7 @@
     },
     {
       "name" : "MyIngress.send_arp_reply",
-      "id" : 8,
+      "id" : 12,
       "runtime_data" : [
         {
           "name" : "macAddr",
@@ -914,7 +1244,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 201,
+            "line" : 241,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.dstAddr = hdr.arp.sha"
           }
@@ -933,7 +1263,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 202,
+            "line" : 242,
             "column" : 8,
             "source_fragment" : "hdr.ethernet.srcAddr = macAddr"
           }
@@ -952,7 +1282,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 16,
+            "line" : 17,
             "column" : 31,
             "source_fragment" : "2; ..."
           }
@@ -971,7 +1301,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 206,
+            "line" : 246,
             "column" : 8,
             "source_fragment" : "hdr.arp.tha = hdr.arp.sha"
           }
@@ -990,7 +1320,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 207,
+            "line" : 247,
             "column" : 8,
             "source_fragment" : "hdr.arp.tpa = hdr.arp.spa"
           }
@@ -1009,7 +1339,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 208,
+            "line" : 248,
             "column" : 8,
             "source_fragment" : "hdr.arp.sha = macAddr"
           }
@@ -1028,7 +1358,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 209,
+            "line" : 249,
             "column" : 8,
             "source_fragment" : "hdr.arp.spa = meta.dst_ipv4"
           }
@@ -1047,7 +1377,7 @@
           ],
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 211,
+            "line" : 251,
             "column" : 8,
             "source_fragment" : "standard_metadata.egress_spec = standard_metadata.ingress_port"
           }
@@ -1061,7 +1391,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "basic.p4",
-        "line" : 132,
+        "line" : 151,
         "column" : 8,
         "source_fragment" : "MyIngress"
       },
@@ -1072,7 +1402,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 214,
+            "line" : 254,
             "column" : 10,
             "source_fragment" : "arp_match"
           },
@@ -1096,7 +1426,7 @@
           "with_counters" : false,
           "support_timeout" : false,
           "direct_meters" : null,
-          "action_ids" : [8, 3],
+          "action_ids" : [12, 5],
           "actions" : ["MyIngress.send_arp_reply", "MyIngress.drop"],
           "base_default_next" : null,
           "next_tables" : {
@@ -1104,7 +1434,7 @@
             "MyIngress.drop" : null
           },
           "default_entry" : {
-            "action_id" : 3,
+            "action_id" : 5,
             "action_const" : true,
             "action_data" : [],
             "action_entry_const" : true
@@ -1115,7 +1445,7 @@
           "id" : 1,
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 161,
+            "line" : 187,
             "column" : 10,
             "source_fragment" : "ipv4_lpm"
           },
@@ -1133,14 +1463,14 @@
           "with_counters" : false,
           "support_timeout" : false,
           "direct_meters" : null,
-          "action_ids" : [4, 5, 1, 0],
+          "action_ids" : [6, 8, 2, 0],
           "actions" : ["MyIngress.ipv4_forward", "MyIngress.myTunnel_ingress", "MyIngress.drop", "NoAction"],
-          "base_default_next" : "node_6",
+          "base_default_next" : "node_8",
           "next_tables" : {
-            "MyIngress.ipv4_forward" : "node_6",
-            "MyIngress.myTunnel_ingress" : "node_6",
-            "MyIngress.drop" : "node_6",
-            "NoAction" : "node_6"
+            "MyIngress.ipv4_forward" : "node_8",
+            "MyIngress.myTunnel_ingress" : "node_8",
+            "MyIngress.drop" : "node_8",
+            "NoAction" : "node_8"
           },
           "default_entry" : {
             "action_id" : 0,
@@ -1150,11 +1480,50 @@
           }
         },
         {
-          "name" : "MyIngress.myTunnel_exact",
+          "name" : "MyIngress.ipv6_lpm",
           "id" : 2,
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 187,
+            "line" : 201,
+            "column" : 10,
+            "source_fragment" : "ipv6_lpm"
+          },
+          "key" : [
+            {
+              "match_type" : "lpm",
+              "name" : "hdr.ipv6.dstAddr",
+              "target" : ["ipv6", "dstAddr"],
+              "mask" : null
+            }
+          ],
+          "match_type" : "lpm",
+          "type" : "simple",
+          "max_size" : 1024,
+          "with_counters" : false,
+          "support_timeout" : false,
+          "direct_meters" : null,
+          "action_ids" : [7, 9, 3, 1],
+          "actions" : ["MyIngress.ipv6_forward", "MyIngress.myTunnel_ingress", "MyIngress.drop", "NoAction"],
+          "base_default_next" : "node_8",
+          "next_tables" : {
+            "MyIngress.ipv6_forward" : "node_8",
+            "MyIngress.myTunnel_ingress" : "node_8",
+            "MyIngress.drop" : "node_8",
+            "NoAction" : "node_8"
+          },
+          "default_entry" : {
+            "action_id" : 1,
+            "action_const" : false,
+            "action_data" : [],
+            "action_entry_const" : false
+          }
+        },
+        {
+          "name" : "MyIngress.myTunnel_exact",
+          "id" : 3,
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 227,
             "column" : 10,
             "source_fragment" : "myTunnel_exact"
           },
@@ -1172,7 +1541,7 @@
           "with_counters" : false,
           "support_timeout" : false,
           "direct_meters" : null,
-          "action_ids" : [6, 7, 2],
+          "action_ids" : [10, 11, 4],
           "actions" : ["MyIngress.myTunnel_forward", "MyIngress.myTunnel_egress", "MyIngress.drop"],
           "base_default_next" : null,
           "next_tables" : {
@@ -1181,7 +1550,7 @@
             "MyIngress.drop" : null
           },
           "default_entry" : {
-            "action_id" : 2,
+            "action_id" : 4,
             "action_const" : false,
             "action_data" : [],
             "action_entry_const" : false
@@ -1195,7 +1564,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 227,
+            "line" : 267,
             "column" : 11,
             "source_fragment" : "hdr.ethernet.etherType == TYPE_ARP"
           },
@@ -1221,7 +1590,7 @@
           "id" : 1,
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 231,
+            "line" : 271,
             "column" : 16,
             "source_fragment" : "hdr.ipv4.isValid() && !hdr.myTunnel.isValid()"
           },
@@ -1268,7 +1637,54 @@
           "id" : 2,
           "source_info" : {
             "filename" : "basic.p4",
-            "line" : 236,
+            "line" : 275,
+            "column" : 21,
+            "source_fragment" : "hdr.ipv6.isValid() && !hdr.myTunnel.isValid()"
+          },
+          "expression" : {
+            "type" : "expression",
+            "value" : {
+              "op" : "and",
+              "left" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "d2b",
+                  "left" : null,
+                  "right" : {
+                    "type" : "field",
+                    "value" : ["ipv6", "$valid$"]
+                  }
+                }
+              },
+              "right" : {
+                "type" : "expression",
+                "value" : {
+                  "op" : "not",
+                  "left" : null,
+                  "right" : {
+                    "type" : "expression",
+                    "value" : {
+                      "op" : "d2b",
+                      "left" : null,
+                      "right" : {
+                        "type" : "field",
+                        "value" : ["myTunnel", "$valid$"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "true_next" : "MyIngress.ipv6_lpm",
+          "false_next" : "node_8"
+        },
+        {
+          "name" : "node_8",
+          "id" : 3,
+          "source_info" : {
+            "filename" : "basic.p4",
+            "line" : 280,
             "column" : 16,
             "source_fragment" : "hdr.myTunnel.isValid()"
           },
@@ -1293,7 +1709,7 @@
       "id" : 1,
       "source_info" : {
         "filename" : "basic.p4",
-        "line" : 248,
+        "line" : 292,
         "column" : 8,
         "source_fragment" : "MyEgress"
       },
@@ -1309,7 +1725,7 @@
       "id" : 0,
       "source_info" : {
         "filename" : "basic.p4",
-        "line" : 260,
+        "line" : 304,
         "column" : 8,
         "source_fragment" : "update_checksum( ..."
       },

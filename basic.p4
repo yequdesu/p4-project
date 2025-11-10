@@ -5,6 +5,7 @@
 
 const bit<16> TYPE_MYTUNNEL = 0x1212;
 const bit<16> TYPE_IPV4 = 0x800;
+const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
 const bit<32> MAX_TUNNEL_ID = 1 << 16;
 
@@ -61,6 +62,17 @@ header ipv4_t {
     ip4Addr_t dstAddr;
 }
 
+header ipv6_t {
+    bit<4>    version;
+    bit<8>    trafficClass;
+    bit<20>   flowLabel;
+    bit<16>   payLoadLen;
+    bit<8>    nextHdr;
+    bit<8>    hopLimit;
+    bit<128>  srcAddr;
+    bit<128>  dstAddr;
+}
+
 struct metadata {
     ip4Addr_t dst_ipv4; // dst ip for ARP
 }
@@ -70,6 +82,7 @@ struct headers {
     myTunnel_t   myTunnel;
     arp_t        arp;
     ipv4_t       ipv4;
+    ipv6_t       ipv6;
 }
 
 /*************************************************************************
@@ -90,6 +103,7 @@ parser MyParser(packet_in packet,
         transition select(hdr.ethernet.etherType) {
             TYPE_MYTUNNEL: parse_myTunnel;
             TYPE_IPV4: parse_ipv4;
+            TYPE_IPV6: parse_ipv6;
             TYPE_ARP: parse_arp;
             default: accept;
         }
@@ -111,6 +125,11 @@ parser MyParser(packet_in packet,
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
+        transition accept;
+    }
+
+    state parse_ipv6 {
+        packet.extract(hdr.ipv6);
         transition accept;
     }
 }
@@ -147,6 +166,13 @@ control MyIngress(inout headers hdr,
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
+    action ipv6_forward(macAddr_t dstAddr, egressSpec_t port) {
+        standard_metadata.egress_spec = port;
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = dstAddr;
+        hdr.ipv6.hopLimit = hdr.ipv6.hopLimit - 1;
+    }
+
     /*Switches add the myTunnel header to an IP packet upon ingress to the network
     then remove the myTunnel header as the packet leaves to the network to an end host*/
 
@@ -164,6 +190,20 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ipv4_forward;
+            myTunnel_ingress;
+            drop;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+
+    table ipv6_lpm {
+        key = {
+            hdr.ipv6.dstAddr: lpm;
+        }
+        actions = {
+            ipv6_forward;
             myTunnel_ingress;
             drop;
             NoAction;
@@ -232,6 +272,10 @@ control MyIngress(inout headers hdr,
                 // Process only non-tunneled IPv4 packets and add tunnel header
                 ipv4_lpm.apply();
             }
+            else if (hdr.ipv6.isValid() && !hdr.myTunnel.isValid()) {
+                // Process only non-tunneled IPv6 packets and add tunnel header
+                ipv6_lpm.apply();
+            }
 
             if (hdr.myTunnel.isValid()) {
                 // Process all tunneled packets.
@@ -286,6 +330,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.myTunnel);
         packet.emit(hdr.arp);
         packet.emit(hdr.ipv4);
+        packet.emit(hdr.ipv6);
     }
 }
 
