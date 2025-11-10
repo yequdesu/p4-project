@@ -25,29 +25,37 @@ class IPv4Controller:
         self.bmv2_file_path = bmv2_file_path
         self.switches = {}
 
-        # Tunnel configuration based on topology: h1-s1-s11-s12-s2-h2 (IPv4) and h1-s1-s21-s22-s2-h2 (IPv6)
+        # Direct routing configuration
         self.switch_to_host_port = 1
-        # tunnel_id: (src_switch, dst_switch, output_port, dst_mac)
-        self.tunnel_mappings = {
-            # IPv4 tunnels: h1-s1-s11-s12-s2-h2
-            100: ('s1', 's2', 2, "08:00:00:00:02:22"),  # s1 -> s2 via s11-s12 path
-            101: ('s2', 's1', 2, "08:00:00:00:01:11"),  # s2 -> s1 return path
 
-            # IPv6 tunnels: h1-s1-s21-s22-s2-h2
-            200: ('s1', 's2', 3, "08:00:00:00:02:22"),  # s1 -> s2 via s21-s22 path
-            201: ('s2', 's1', 3, "08:00:00:00:01:11"),  # s2 -> s1 return path
-        }
-
-        # (switch, dst_ip): tunnel_id
+        # Direct IPv4 routes: (switch, dst_ip): (dst_mac, port)
         self.ip_routes = {
-            ('s1', "10.0.2.2"): 100,  # s1 to h2 (IPv4)
-            ('s2', "10.0.1.1"): 101,  # s2 to h1 (IPv4)
+            # IPv4 routing: h1-s1-s11-s12-s2-h2
+            ('s1', "10.0.2.2"): ("ff:ff:ff:ff:ff:ff", 2),   # s1 to h2 via s11 (port 2)
+            ('s11', "10.0.2.2"): ("ff:ff:ff:ff:ff:ff", 2),  # s11 to h2 via s12 (port 2)
+            ('s12', "10.0.2.2"): ("ff:ff:ff:ff:ff:ff", 2),  # s12 to h2 via s2 (port 2)
+            ('s2', "10.0.2.2"): ("08:00:00:00:02:22", 1),   # s2 to h2 directly (port 1)
+
+            # Return path: h2-s2-s12-s11-s1-h1
+            ('s2', "10.0.1.1"): ("ff:ff:ff:ff:ff:ff", 2),   # s2 to h1 via s12 (port 2)
+            ('s12', "10.0.1.1"): ("ff:ff:ff:ff:ff:ff", 1),  # s12 to h1 via s11 (port 1)
+            ('s11', "10.0.1.1"): ("ff:ff:ff:ff:ff:ff", 1),  # s11 to h1 via s1 (port 1)
+            ('s1', "10.0.1.1"): ("08:00:00:00:01:11", 1),   # s1 to h1 directly (port 1)
         }
 
-        # IPv6 routes: (switch, dst_ipv6): tunnel_id
+        # Direct IPv6 routes: (switch, dst_ipv6): (dst_mac, port)
         self.ipv6_routes = {
-            ('s1', "2001:db8:1::2"): 200,  # s1 to h2 (IPv6)
-            ('s2', "2001:db8:1::1"): 201,  # s2 to h1 (IPv6)
+            # IPv6 routing: h1-s1-s21-s22-s2-h2
+            ('s1', "2001:db8:1::2"): ("ff:ff:ff:ff:ff:ff", 3),   # s1 to h2 via s21 (port 3)
+            ('s21', "2001:db8:1::2"): ("ff:ff:ff:ff:ff:ff", 2),  # s21 to h2 via s22 (port 2)
+            ('s22', "2001:db8:1::2"): ("ff:ff:ff:ff:ff:ff", 2),  # s22 to h2 via s2 (port 2)
+            ('s2', "2001:db8:1::2"): ("08:00:00:00:02:22", 1),   # s2 to h2 directly (port 1)
+
+            # Return path: h2-s2-s22-s21-s1-h1
+            ('s2', "2001:db8:1::1"): ("ff:ff:ff:ff:ff:ff", 3),   # s2 to h1 via s22 (port 3)
+            ('s22', "2001:db8:1::1"): ("ff:ff:ff:ff:ff:ff", 1),  # s22 to h1 via s21 (port 1)
+            ('s21', "2001:db8:1::1"): ("ff:ff:ff:ff:ff:ff", 1),  # s21 to h1 via s1 (port 1)
+            ('s1', "2001:db8:1::1"): ("08:00:00:00:01:11", 1),   # s1 to h1 directly (port 1)
         }
 
         # ARP rules: (switch, target_ip, reply_mac)
@@ -90,224 +98,50 @@ class IPv4Controller:
         print("All forwarding rules deployed")
 
     def _deploy_ipv4_rules(self):
-        """Deploy IPv4 routing rules with tunnel ingress"""
-        for (sw_name, dst_ip), tunnel_id in self.ip_routes.items():
+        """Deploy IPv4 routing rules with direct forwarding"""
+        for (sw_name, dst_ip), (dst_mac, port) in self.ip_routes.items():
             table_entry = self.p4info_helper.buildTableEntry(
                 table_name="MyIngress.ipv4_lpm",
                 match_fields={"hdr.ipv4.dstAddr": (dst_ip, 32)},
-                action_name="MyIngress.myTunnel_ingress",
-                action_params={"dst_id": tunnel_id}
+                action_name="MyIngress.ipv4_forward",
+                action_params={"dstAddr": dst_mac, "port": port}
             )
             try:
                 self.switches[sw_name].WriteTableEntry(table_entry)
-                print(f"Added IPv4 tunnel route: {sw_name} -> {dst_ip} via tunnel {tunnel_id}")
+                print(f"Added IPv4 route: {sw_name} -> {dst_ip} via port {port}")
             except grpc.RpcError as e:
-                print(f"Failed to add tunnel route {sw_name} -> {dst_ip}: {e}")
+                print(f"Failed to add IPv4 route {sw_name} -> {dst_ip}: {e}")
                 # Try to modify if entry exists
                 try:
                     self.switches[sw_name].ModifyTableEntry(table_entry)
-                    print(f"Modified IPv4 tunnel route: {sw_name} -> {dst_ip} via tunnel {tunnel_id}")
+                    print(f"Modified IPv4 route: {sw_name} -> {dst_ip} via port {port}")
                 except grpc.RpcError as e2:
-                    print(f"Failed to modify tunnel route {sw_name} -> {dst_ip}: {e2}")
+                    print(f"Failed to modify IPv4 route {sw_name} -> {dst_ip}: {e2}")
 
     def _deploy_ipv6_rules(self):
-        """Deploy IPv6 routing rules with tunnel ingress"""
-        for (sw_name, dst_ipv6), tunnel_id in self.ipv6_routes.items():
+        """Deploy IPv6 routing rules with direct forwarding"""
+        for (sw_name, dst_ipv6), (dst_mac, port) in self.ipv6_routes.items():
             table_entry = self.p4info_helper.buildTableEntry(
                 table_name="MyIngress.ipv6_lpm",
                 match_fields={"hdr.ipv6.dstAddr": (dst_ipv6, 128)},
-                action_name="MyIngress.myTunnel_ingress",
-                action_params={"dst_id": tunnel_id}
+                action_name="MyIngress.ipv6_forward",
+                action_params={"dstAddr": dst_mac, "port": port}
             )
             try:
                 self.switches[sw_name].WriteTableEntry(table_entry)
-                print(f"Added IPv6 tunnel route: {sw_name} -> {dst_ipv6} via tunnel {tunnel_id}")
+                print(f"Added IPv6 route: {sw_name} -> {dst_ipv6} via port {port}")
             except grpc.RpcError as e:
-                print(f"Failed to add IPv6 tunnel route {sw_name} -> {dst_ipv6}: {e}")
+                print(f"Failed to add IPv6 route {sw_name} -> {dst_ipv6}: {e}")
                 # Try to modify if entry exists
                 try:
                     self.switches[sw_name].ModifyTableEntry(table_entry)
-                    print(f"Modified IPv6 tunnel route: {sw_name} -> {dst_ipv6} via tunnel {tunnel_id}")
+                    print(f"Modified IPv6 route: {sw_name} -> {dst_ipv6} via port {port}")
                 except grpc.RpcError as e2:
-                    print(f"Failed to modify IPv6 tunnel route {sw_name} -> {dst_ipv6}: {e2}")
+                    print(f"Failed to modify IPv6 route {sw_name} -> {dst_ipv6}: {e2}")
 
     def _deploy_tunnel_rules(self):
-        """Deploy tunnel forwarding rules"""
-        # For tunnel 100: s1 -> s11 -> s12 -> s2 -> h2
-        # s1 forwards to s11
-        s1_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 100},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 2}  # s1 port 2 -> s11
-        )
-        self.switches['s1'].WriteTableEntry(s1_forward)
-        print("Added tunnel forward: s1 tunnel 100 -> port 2 (s11)")
-
-        # s11 forwards to s12
-        s11_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 100},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 2}  # s11 port 2 -> s12
-        )
-        self.switches['s11'].WriteTableEntry(s11_forward)
-        print("Added tunnel forward: s11 tunnel 100 -> port 2 (s12)")
-
-        # s12 forwards to s2
-        s12_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 100},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 2}  # s12 port 2 -> s2
-        )
-        self.switches['s12'].WriteTableEntry(s12_forward)
-        print("Added tunnel forward: s12 tunnel 100 -> port 2 (s2)")
-
-        # s2 egress to h2
-        s2_egress = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 100},
-            action_name="MyIngress.myTunnel_egress",
-            action_params={
-                "dstAddr": "08:00:00:00:02:22",  # h2 MAC
-                "port": 1  # s2 port 1 -> h2
-            }
-        )
-        self.switches['s2'].WriteTableEntry(s2_egress)
-        print("Added tunnel egress: s2 tunnel 100 -> h2 port 1")
-
-        # For return path tunnel 101: s2 -> s12 -> s11 -> s1 -> h1
-        # s2 forwards to s12
-        s2_return_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 101},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 2}  # s2 port 2 -> s12
-        )
-        self.switches['s2'].WriteTableEntry(s2_return_forward)
-        print("Added tunnel forward: s2 tunnel 101 -> port 2 (s12)")
-
-        # s12 forwards to s11
-        s12_return_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 101},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 1}  # s12 port 1 -> s11
-        )
-        self.switches['s12'].WriteTableEntry(s12_return_forward)
-        print("Added tunnel forward: s12 tunnel 101 -> port 1 (s11)")
-
-        # s11 forwards to s1
-        s11_return_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 101},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 1}  # s11 port 1 -> s1
-        )
-        self.switches['s11'].WriteTableEntry(s11_return_forward)
-        print("Added tunnel forward: s11 tunnel 101 -> port 1 (s1)")
-
-        # s1 egress to h1
-        s1_egress = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 101},
-            action_name="MyIngress.myTunnel_egress",
-            action_params={
-                "dstAddr": "08:00:00:00:01:11",  # h1 MAC
-                "port": 1  # s1 port 1 -> h1
-            }
-        )
-        self.switches['s1'].WriteTableEntry(s1_egress)
-        print("Added tunnel egress: s1 tunnel 101 -> h1 port 1")
-
-        # IPv6 tunnels: h1-s1-s21-s22-s2-h2
-        # s1 forwards to s21
-        s1_ipv6_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 200},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 3}  # s1 port 3 -> s21
-        )
-        self.switches['s1'].WriteTableEntry(s1_ipv6_forward)
-        print("Added tunnel forward: s1 tunnel 200 -> port 3 (s21)")
-
-        # s21 forwards to s22
-        s21_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 200},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 2}  # s21 port 2 -> s22
-        )
-        self.switches['s21'].WriteTableEntry(s21_forward)
-        print("Added tunnel forward: s21 tunnel 200 -> port 2 (s22)")
-
-        # s22 forwards to s2
-        s22_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 200},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 2}  # s22 port 2 -> s2
-        )
-        self.switches['s22'].WriteTableEntry(s22_forward)
-        print("Added tunnel forward: s22 tunnel 200 -> port 2 (s2)")
-
-        # s2 egress to h2 (IPv6)
-        s2_ipv6_egress = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 200},
-            action_name="MyIngress.myTunnel_egress",
-            action_params={
-                "dstAddr": "08:00:00:00:02:22",  # h2 MAC
-                "port": 1  # s2 port 1 -> h2
-            }
-        )
-        self.switches['s2'].WriteTableEntry(s2_ipv6_egress)
-        print("Added tunnel egress: s2 tunnel 200 -> h2 port 1")
-
-        # IPv6 return path: s2 -> s22 -> s21 -> s1 -> h1
-        # s2 forwards to s22
-        s2_ipv6_return_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 201},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 3}  # s2 port 3 -> s22
-        )
-        self.switches['s2'].WriteTableEntry(s2_ipv6_return_forward)
-        print("Added tunnel forward: s2 tunnel 201 -> port 3 (s22)")
-
-        # s22 forwards to s21
-        s22_return_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 201},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 1}  # s22 port 1 -> s21
-        )
-        self.switches['s22'].WriteTableEntry(s22_return_forward)
-        print("Added tunnel forward: s22 tunnel 201 -> port 1 (s21)")
-
-        # s21 forwards to s1
-        s21_return_forward = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 201},
-            action_name="MyIngress.myTunnel_forward",
-            action_params={"port": 1}  # s21 port 1 -> s1
-        )
-        self.switches['s21'].WriteTableEntry(s21_return_forward)
-        print("Added tunnel forward: s21 tunnel 201 -> port 1 (s1)")
-
-        # s1 egress to h1 (IPv6)
-        s1_ipv6_egress = self.p4info_helper.buildTableEntry(
-            table_name="MyIngress.myTunnel_exact",
-            match_fields={"hdr.myTunnel.dst_id": 201},
-            action_name="MyIngress.myTunnel_egress",
-            action_params={
-                "dstAddr": "08:00:00:00:01:11",  # h1 MAC
-                "port": 1  # s1 port 1 -> h1
-            }
-        )
-        self.switches['s1'].WriteTableEntry(s1_ipv6_egress)
-        print("Added tunnel egress: s1 tunnel 201 -> h1 port 1")
+        """No tunnel rules needed for direct routing"""
+        pass
 
     def _deploy_arp_rules(self):
         """Deploy ARP response rules"""

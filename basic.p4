@@ -32,10 +32,6 @@ header ethernet_t {
     bit<16>   etherType;
 }
 
-header myTunnel_t {
-    bit<16> proto_id;
-    bit<16> dst_id;
-}
 
 header srcRoute_t {
     bit<1>    bos;
@@ -86,7 +82,6 @@ struct metadata {
 
 struct headers {
     ethernet_t              ethernet;
-    myTunnel_t              myTunnel;
     srcRoute_t[MAX_HOPS]    srcRoutes;
     arp_t                   arp;
     ipv4_t                  ipv4;
@@ -109,19 +104,10 @@ parser MyParser(packet_in packet,
     state parse_ethernet {
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
-            TYPE_MYTUNNEL: parse_myTunnel;
             TYPE_SRCROUTING: parse_srcRouting;
             TYPE_IPV4: parse_ipv4;
             TYPE_IPV6: parse_ipv6;
             TYPE_ARP: parse_arp;
-            default: accept;
-        }
-    }
-
-    state parse_myTunnel {
-        packet.extract(hdr.myTunnel);
-        transition select(hdr.myTunnel.proto_id) {
-            TYPE_IPV4: parse_ipv4;
             default: accept;
         }
     }
@@ -169,8 +155,6 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    counter(MAX_TUNNEL_ID, CounterType.packets_and_bytes) ingressTunnelCounter;
-    counter(MAX_TUNNEL_ID, CounterType.packets_and_bytes) egressTunnelCounter;
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -190,16 +174,6 @@ control MyIngress(inout headers hdr,
         hdr.ipv6.hopLimit = hdr.ipv6.hopLimit - 1;
     }
 
-    /*Switches add the myTunnel header to an IP packet upon ingress to the network
-    then remove the myTunnel header as the packet leaves to the network to an end host*/
-
-    action myTunnel_ingress(bit<16> dst_id) {
-        hdr.myTunnel.setValid();
-        hdr.myTunnel.dst_id = dst_id;
-        hdr.myTunnel.proto_id = hdr.ethernet.etherType;
-        hdr.ethernet.etherType = TYPE_MYTUNNEL;
-        ingressTunnelCounter.count((bit<32>) hdr.myTunnel.dst_id);
-    }
 
     table ipv4_lpm {
         key = {
@@ -207,7 +181,6 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ipv4_forward;
-            myTunnel_ingress;
             drop;
             NoAction;
         }
@@ -221,7 +194,6 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ipv6_forward;
-            myTunnel_ingress;
             drop;
             NoAction;
         }
@@ -229,17 +201,6 @@ control MyIngress(inout headers hdr,
         default_action = NoAction();
     }
 
-    action myTunnel_forward(egressSpec_t port) {
-        standard_metadata.egress_spec = port;
-    }
-
-    action myTunnel_egress(macAddr_t dstAddr, egressSpec_t port) {
-        standard_metadata.egress_spec = port;
-        hdr.ethernet.dstAddr = dstAddr;
-        hdr.ethernet.etherType = hdr.myTunnel.proto_id;
-        egressTunnelCounter.count((bit<32>) hdr.myTunnel.dst_id);
-        hdr.myTunnel.setInvalid();
-    }
 
     action srcRoute_nhop() {
         standard_metadata.egress_spec = (bit<9>)hdr.srcRoutes[0].port;
@@ -313,18 +274,6 @@ control MyIngress(inout headers hdr,
         hdr.srcRoutes[0].bos = bos1;
     }
 
-    table myTunnel_exact {
-        key = {
-            hdr.myTunnel.dst_id: exact;
-        }
-        actions = {
-            myTunnel_forward;
-            myTunnel_egress;
-            drop;
-        }
-        size = 1024;
-        default_action = drop();
-    }
 
     table src_routing_publish {
         key = {
@@ -403,18 +352,13 @@ control MyIngress(inout headers hdr,
         }
         else {
             // IPv4 and IPv6 modalities - conventional routing
-            if (hdr.ipv4.isValid() && !hdr.myTunnel.isValid()) {
-                // Process only non-tunneled IPv4 packets and add tunnel header
+            if (hdr.ipv4.isValid()) {
+                // Process IPv4 packets
                 ipv4_lpm.apply();
             }
-            else if (hdr.ipv6.isValid() && !hdr.myTunnel.isValid()) {
-                // Process only non-tunneled IPv6 packets and add tunnel header
+            else if (hdr.ipv6.isValid()) {
+                // Process IPv6 packets
                 ipv6_lpm.apply();
-            }
-
-            if (hdr.myTunnel.isValid()) {
-                // Process all tunneled packets.
-                myTunnel_exact.apply();
             }
         }
     }
@@ -462,7 +406,6 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
-        packet.emit(hdr.myTunnel);
         packet.emit(hdr.srcRoutes);
         packet.emit(hdr.arp);
         packet.emit(hdr.ipv4);
