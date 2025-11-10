@@ -7,7 +7,9 @@ const bit<16> TYPE_MYTUNNEL = 0x1212;
 const bit<16> TYPE_IPV4 = 0x800;
 const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
+const bit<16> TYPE_SRCROUTING = 0x0900;
 const bit<32> MAX_TUNNEL_ID = 1 << 16;
+#define MAX_HOPS 9
 
 const bit<16> ARP_HTYPE_ETHERNET = 0x0001;
 const bit<16> ARP_PTYPE_IPV4 = 0x0800;
@@ -33,6 +35,11 @@ header ethernet_t {
 header myTunnel_t {
     bit<16> proto_id;
     bit<16> dst_id;
+}
+
+header srcRoute_t {
+    bit<1>    bos;
+    bit<15>   port;
 }
 
 header arp_t {
@@ -78,11 +85,12 @@ struct metadata {
 }
 
 struct headers {
-    ethernet_t   ethernet;
-    myTunnel_t   myTunnel;
-    arp_t        arp;
-    ipv4_t       ipv4;
-    ipv6_t       ipv6;
+    ethernet_t              ethernet;
+    myTunnel_t              myTunnel;
+    srcRoute_t[MAX_HOPS]    srcRoutes;
+    arp_t                   arp;
+    ipv4_t                  ipv4;
+    ipv6_t                  ipv6;
 }
 
 /*************************************************************************
@@ -102,6 +110,7 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
             TYPE_MYTUNNEL: parse_myTunnel;
+            TYPE_SRCROUTING: parse_srcRouting;
             TYPE_IPV4: parse_ipv4;
             TYPE_IPV6: parse_ipv6;
             TYPE_ARP: parse_arp;
@@ -131,6 +140,14 @@ parser MyParser(packet_in packet,
     state parse_ipv6 {
         packet.extract(hdr.ipv6);
         transition accept;
+    }
+
+    state parse_srcRouting {
+        packet.extract(hdr.srcRoutes.next);
+        transition select(hdr.srcRoutes.last.bos) {
+            1: parse_ipv4;
+            default: parse_srcRouting;
+        }
     }
 }
 
@@ -224,6 +241,78 @@ control MyIngress(inout headers hdr,
         hdr.myTunnel.setInvalid();
     }
 
+    action srcRoute_nhop() {
+        standard_metadata.egress_spec = (bit<9>)hdr.srcRoutes[0].port;
+        hdr.srcRoutes.pop_front(1);
+    }
+
+    action srcRoute_finish() {
+        hdr.ethernet.etherType = TYPE_IPV4;
+    }
+
+    action update_ttl(){
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+    }
+
+    // 1 hop
+    action add_head_1(
+        bit<1>    bos1,
+        bit<15>   port1
+    ){
+        hdr.ethernet.etherType = TYPE_SRCROUTING;
+        hdr.srcRoutes.push_front(1);
+        hdr.srcRoutes[0].setValid();
+        hdr.srcRoutes[0].port = port1;
+        hdr.srcRoutes[0].bos = bos1;
+    }
+
+    // 2 hops
+    action add_head_2(
+        bit<1>    bos1,
+        bit<15>   port1,
+        bit<1>    bos2,
+        bit<15>   port2
+    ){
+        hdr.ethernet.etherType = TYPE_SRCROUTING;
+
+        hdr.srcRoutes.push_front(1);
+        hdr.srcRoutes[0].setValid();
+        hdr.srcRoutes[0].port = port2;
+        hdr.srcRoutes[0].bos = bos2;
+
+        hdr.srcRoutes.push_front(1);
+        hdr.srcRoutes[0].setValid();
+        hdr.srcRoutes[0].port = port1;
+        hdr.srcRoutes[0].bos = bos1;
+    }
+
+    // 3 hops
+    action add_head_3(
+        bit<1>    bos1,
+        bit<15>   port1,
+        bit<1>    bos2,
+        bit<15>   port2,
+        bit<1>    bos3,
+        bit<15>   port3
+    ){
+        hdr.ethernet.etherType = TYPE_SRCROUTING;
+
+        hdr.srcRoutes.push_front(1);
+        hdr.srcRoutes[0].setValid();
+        hdr.srcRoutes[0].port = port3;
+        hdr.srcRoutes[0].bos = bos3;
+
+        hdr.srcRoutes.push_front(1);
+        hdr.srcRoutes[0].setValid();
+        hdr.srcRoutes[0].port = port2;
+        hdr.srcRoutes[0].bos = bos2;
+
+        hdr.srcRoutes.push_front(1);
+        hdr.srcRoutes[0].setValid();
+        hdr.srcRoutes[0].port = port1;
+        hdr.srcRoutes[0].bos = bos1;
+    }
+
     table myTunnel_exact {
         key = {
             hdr.myTunnel.dst_id: exact;
@@ -235,6 +324,38 @@ control MyIngress(inout headers hdr,
         }
         size = 1024;
         default_action = drop();
+    }
+
+    table src_routing_publish {
+        key = {
+            hdr.ipv4.dstAddr: lpm;
+        }
+        actions = {
+            add_head_1;
+            add_head_2;
+            add_head_3;
+            drop;
+        }
+        default_action = drop();
+        size = 1024;
+    }
+
+    //rewrite destination MAC so that the target host will reply
+    action rewriteMac(macAddr_t dstAddr) {
+        hdr.ethernet.dstAddr = dstAddr;
+    }
+
+    table ipv4_lpm_src {
+        key = {
+            hdr.ipv4.dstAddr: lpm;
+        }
+        actions = {
+            rewriteMac;
+            drop;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
     }
 
     action send_arp_reply(macAddr_t macAddr) {
@@ -267,7 +388,21 @@ control MyIngress(inout headers hdr,
         if(hdr.ethernet.etherType == TYPE_ARP) {
             arp_match.apply();
         }
+        else if (hdr.ethernet.etherType == TYPE_SRCROUTING) {
+            // Source routing modality - independent path control
+            if (hdr.srcRoutes[0].isValid()){
+                if (hdr.srcRoutes[0].bos == 1){
+                    srcRoute_finish();
+                    if (hdr.ipv4.isValid()){
+                        ipv4_lpm_src.apply();
+                    }
+                }
+                srcRoute_nhop();
+                update_ttl();
+            }
+        }
         else {
+            // IPv4 and IPv6 modalities - conventional routing
             if (hdr.ipv4.isValid() && !hdr.myTunnel.isValid()) {
                 // Process only non-tunneled IPv4 packets and add tunnel header
                 ipv4_lpm.apply();
@@ -328,6 +463,7 @@ control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
         packet.emit(hdr.myTunnel);
+        packet.emit(hdr.srcRoutes);
         packet.emit(hdr.arp);
         packet.emit(hdr.ipv4);
         packet.emit(hdr.ipv6);

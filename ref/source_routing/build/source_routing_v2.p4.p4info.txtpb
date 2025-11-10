@@ -1,0 +1,192 @@
+# proto-file: p4/config/v1/p4info.proto
+# proto-message: p4.config.v1.P4Info
+
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 40792462
+    name: "MyIngress.src_routing_publish"
+    alias: "src_routing_publish"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.dstAddr"
+    bitwidth: 32
+    match_type: LPM
+  }
+  action_refs {
+    id: 31908370
+  }
+  action_refs {
+    id: 18910854
+  }
+  action_refs {
+    id: 18987655
+  }
+  action_refs {
+    id: 25652968
+  }
+  initial_default_action {
+    action_id: 25652968
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 37375156
+    name: "MyIngress.ipv4_lpm"
+    alias: "ipv4_lpm"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.dstAddr"
+    bitwidth: 32
+    match_type: LPM
+  }
+  action_refs {
+    id: 18677006
+  }
+  action_refs {
+    id: 25652968
+  }
+  action_refs {
+    id: 21257015
+  }
+  initial_default_action {
+    action_id: 21257015
+  }
+  size: 1024
+}
+actions {
+  preamble {
+    id: 21257015
+    name: "NoAction"
+    alias: "NoAction"
+    annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 25652968
+    name: "MyIngress.drop"
+    alias: "drop"
+  }
+}
+actions {
+  preamble {
+    id: 26904258
+    name: "MyIngress.srcRoute_nhop"
+    alias: "srcRoute_nhop"
+  }
+}
+actions {
+  preamble {
+    id: 18485362
+    name: "MyIngress.srcRoute_finish"
+    alias: "srcRoute_finish"
+  }
+}
+actions {
+  preamble {
+    id: 17475842
+    name: "MyIngress.update_ttl"
+    alias: "update_ttl"
+  }
+}
+actions {
+  preamble {
+    id: 31908370
+    name: "MyIngress.add_head_1"
+    alias: "add_head_1"
+  }
+  params {
+    id: 1
+    name: "bos1"
+    bitwidth: 1
+  }
+  params {
+    id: 2
+    name: "port1"
+    bitwidth: 15
+  }
+}
+actions {
+  preamble {
+    id: 18910854
+    name: "MyIngress.add_head_2"
+    alias: "add_head_2"
+  }
+  params {
+    id: 1
+    name: "bos1"
+    bitwidth: 1
+  }
+  params {
+    id: 2
+    name: "port1"
+    bitwidth: 15
+  }
+  params {
+    id: 3
+    name: "bos2"
+    bitwidth: 1
+  }
+  params {
+    id: 4
+    name: "port2"
+    bitwidth: 15
+  }
+}
+actions {
+  preamble {
+    id: 18987655
+    name: "MyIngress.add_head_3"
+    alias: "add_head_3"
+  }
+  params {
+    id: 1
+    name: "bos1"
+    bitwidth: 1
+  }
+  params {
+    id: 2
+    name: "port1"
+    bitwidth: 15
+  }
+  params {
+    id: 3
+    name: "bos2"
+    bitwidth: 1
+  }
+  params {
+    id: 4
+    name: "port2"
+    bitwidth: 15
+  }
+  params {
+    id: 5
+    name: "bos3"
+    bitwidth: 1
+  }
+  params {
+    id: 6
+    name: "port3"
+    bitwidth: 15
+  }
+}
+actions {
+  preamble {
+    id: 18677006
+    name: "MyIngress.rewriteMac"
+    alias: "rewriteMac"
+  }
+  params {
+    id: 1
+    name: "dstAddr"
+    bitwidth: 48
+  }
+}
+type_info {
+}
