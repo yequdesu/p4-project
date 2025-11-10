@@ -12,8 +12,25 @@ def main():
     parser.add_argument('--ip', help='Destination IP (IPv4 or IPv6)', required=True)
     parser.add_argument('--count', type=int, default=1, help='Number of packets to send (IPv4 only)')
     parser.add_argument('--message', default='Hello', help='Message to send')
+    parser.add_argument('--src-route', nargs='*', type=int, help='Source routing ports (space separated)')
 
     args = parser.parse_args()
+
+    # Check if source routing is requested
+    if args.src_route is not None:
+        # Source routing mode
+        cmd = ['python3', 'send_src.py', args.ip, args.message]
+        if args.src_route:
+            # Pre-specify ports, run non-interactively
+            cmd.extend(['--ports'] + [str(p) for p in args.src_route])
+        # Execute source routing sender
+        try:
+            subprocess.run(cmd, check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to send source routing packet: {e}")
+        except FileNotFoundError:
+            print("send_src.py not found")
+        return
 
     # Determine if IPv4 or IPv6
     try:
