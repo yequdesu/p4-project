@@ -1,141 +1,41 @@
-# P4 Project: Dual-Modal Network with IPv4/IPv6 Forwarding
+# P4项目：多模态可编程网络转发
 
-## Overview
+## 项目概述
+本项目基于P4语言实现了一个支持多协议转发的可编程网络系统，通过隧道封装技术实现IPv4/IPv6双模态转发，并支持源路由等扩展功能。
 
-This project implements a dual-modal network using P4 programmable switches, supporting both IPv4 and IPv6 forwarding with tunnel-based multi-hop routing.
+## 网络拓扑
+- 主机：h1 (10.0.1.1, 2001:db8:1::1), h2 (10.0.2.2, 2001:db8:1::2)
+- 交换机：s1, s2, s11, s12, s21, s22
+- IPv4路径：h1 → s1 → s11 → s12 → s2 → h2
+- IPv6路径：h1 → s1 → s21 → s22 → s2 → h2
 
-## Architecture
+## Level 1: IPv4单模态网络
+实现基本的IPv4转发功能：
+- 使用myTunnel头部进行数据包封装，实现多跳路由
+- s11、s12作为纯转发节点，只处理隧道包
+- 通过P4Runtime动态配置转发规则
+- 支持ARP请求响应和校验和计算
 
-### Network Topology
-- **Hosts**: h1 (10.0.1.1, 2001:db8:1::1), h2 (10.0.2.2, 2001:db8:1::2)
-- **Switches**: s1, s2, s11, s12, s21, s22
-- **IPv4 Path**: h1 → s1 → s11 → s12 → s2 → h2
-- **IPv6 Path**: h1 → s1 → s21 → s22 → s2 → h2
+验证方法：使用pingall测试连通性，通过tcpdump抓包验证隧道封装。
 
-### P4 Program (basic.p4)
-- **Headers**: Ethernet, IPv4, IPv6, ARP, myTunnel
-- **Actions**: ipv4_forward, ipv6_forward, myTunnel_ingress/forward/egress, send_arp_reply
-- **Tables**: ipv4_lpm, ipv6_lpm, myTunnel_exact, arp_match
-- **Features**: Tunnel-based forwarding, ARP response, checksum computation
+## Level 2: IPv4/IPv6双模态网络
+在单模态基础上扩展IPv6支持：
+- 新增IPv6头部解析和转发逻辑
+- IPv6使用独立的路径(s21-s22)，实现流量分离
+- s1和s2支持双栈转发，同时处理IPv4和IPv6
+- IPv6包进行hop limit递减处理
 
-### Controller (controller.py)
-- **P4Runtime Integration**: Dynamic rule deployment
-- **Tunnel Management**: IPv4 tunnels (100-101), IPv6 tunnels (200-201)
-- **Routing Rules**: LPM-based forwarding with tunnel encapsulation
-- **ARP Handling**: Gateway IP response for both protocols
+验证方法：使用Scapy构造IPv6包测试，通过抓包确认IPv6隧道封装。
 
-## Features
+## Level 3: 多模态网络扩展
+进一步扩展网络功能：
+- 集成源路由(srcRoute)头部，支持显式路径控制
+- 实现多种转发模态并存（如传统路由、隧道、源路由）
+- 支持双向通信和复杂路由策略
+- 为未来网络协议扩展提供基础架构
 
-### Level 1: IPv4 Single-Modal Network
-- ✅ IPv4 packet forwarding via tunnel encapsulation
-- ✅ Multi-hop routing: s1 → s11 → s12 → s2
-- ✅ ARP request/response handling
-- ✅ P4Runtime control plane integration
-
-### Level 2: IPv4/IPv6 Dual-Modal Network
-- ✅ IPv6 packet forwarding with hop limit decrement
-- ✅ Separate IPv6 path: s1 → s21 → s22 → s2
-- ✅ Dual-stack support on s1 and s2
-- ✅ IPv4/IPv6 coexistence verification
-
-## Testing Tools
-
-### Packet Testing
-- `send.py`: Unified IPv4/IPv6 packet sender
-- `receive.py`: Unified IPv4/IPv6 packet receiver
-- `send_ipv4.py`: IPv4-specific sender (Scapy)
-- `receive_ipv4.py`: IPv4-specific receiver (Scapy)
-- `send_ipv6.py`: IPv6-specific sender (Scapy)
-- `receive_ipv6.py`: IPv6-specific receiver (Scapy)
-
-### Verification Commands
-```bash
-# Build and run network
-make build
-make run
-
-# Start controller (Terminal 2)
-python3 controller.py
-
-# Test connectivity (Mininet CLI)
-mininet> pingall
-mininet> h1 ping h2
-
-# Send test packets
-python3 send.py --ip 10.0.2.2 --count 3 --message "IPv4 test"
-python3 send.py --ip 2001:db8:1::2 --message "IPv6 test"
-
-# Packet capture verification
-tcpdump -r pcaps/s11-eth2_out.pcap -c 5  # Should show tunnel packets
-tcpdump -r pcaps/s21-eth2_out.pcap -c 5  # Should show tunnel packets
-```
-
-## File Structure
-
-```
-├── basic.p4              # Main P4 program
-├── controller.py         # P4Runtime controller
-├── topology.json         # Network topology definition
-├── send.py              # Unified packet sender
-├── receive.py           # Unified packet receiver
-├── send_ipv4.py         # IPv4 packet sender
-├── receive_ipv4.py      # IPv4 packet receiver
-├── send_ipv6.py         # IPv6 packet sender
-├── receive_ipv6.py      # IPv6 packet receiver
-├── Makefile             # Build and run scripts
-├── build/               # Compiled P4 artifacts
-├── pcaps/               # Packet capture files
-├── logs/                # Switch and controller logs
-└── ref/                 # Reference implementations
-```
-
-## Key Technical Details
-
-### Tunnel-Based Forwarding
-- **Ingress**: Packets encapsulated with tunnel header (proto_id + dst_id)
-- **Transit**: Switches forward based on tunnel dst_id only
-- **Egress**: Destination switch decapsulates and delivers to host
-
-### Dual-Modal Operation
-- **IPv4 Tunnels**: 100 (h1→h2), 101 (h2→h1)
-- **IPv6 Tunnels**: 200 (h1→h2), 201 (h2→h1)
-- **Path Separation**: IPv4 uses s11/s12, IPv6 uses s21/s22
-
-### Verification Methods
-- **Connectivity**: ping, pingall commands
-- **Packet Inspection**: tcpdump on switch interfaces
-- **Protocol Validation**: Scapy packet crafting and analysis
-- **Path Verification**: Tunnel encapsulation/decapsulation checks
-
-## Usage
-
-1. **Setup Environment**
-   ```bash
-   make build
-   make run
-   ```
-
-2. **Deploy Rules**
-   ```bash
-   python3 controller.py
-   ```
-
-3. **Test Network**
-   ```bash
-   # In Mininet CLI
-   mininet> pingall
-   mininet> h1 ping h2
-   ```
-
-4. **Send Custom Packets**
-   ```bash
-   python3 send.py --ip 10.0.2.2 --message "Test"
-   python3 send.py --ip 2001:db8:1::2 --message "IPv6 Test"
-   ```
-
-## Notes
-
-- IPv6 ping may not work in Mininet due to environment limitations
-- Use Scapy-based tools for comprehensive IPv6 testing
-- Packet captures in `pcaps/` directory for analysis
-- Controller logs in `logs/` directory for debugging
+## 技术实现
+- **P4程序**：定义多协议解析器、转发动作和匹配表
+- **控制器**：基于P4Runtime的Python控制器，动态规则部署
+- **测试工具**：提供完整的收发包和验证工具集
+- **参考实现**：包含IPv6转发、P4Runtime隧道和源路由等示例
