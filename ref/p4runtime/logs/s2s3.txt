@@ -1,0 +1,89 @@
+# s2s3 link statistics - Started: 2025-11-10 01:57:21.410835
+
+# 2025-11-10 01:57:21
+1s3 received 0 packets, counter ID: 300
+2s2 sent 0 packets, counter ID: 300
+3s2->s3
+4s2 received 0 packets, counter ID: 301
+5s3 sent 0 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:23
+1s3 received 0 packets, counter ID: 300
+2s2 sent 0 packets, counter ID: 300
+3s2->s3
+4s2 received 0 packets, counter ID: 301
+5s3 sent 0 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:25
+1s3 received 2 packets, counter ID: 300
+2s2 sent 2 packets, counter ID: 300
+3s2->s3
+4s2 received 2 packets, counter ID: 301
+5s3 sent 2 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:27
+1s3 received 2 packets, counter ID: 300
+2s2 sent 2 packets, counter ID: 300
+3s2->s3
+4s2 received 2 packets, counter ID: 301
+5s3 sent 2 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:29
+1s3 received 2 packets, counter ID: 300
+2s2 sent 2 packets, counter ID: 300
+3s2->s3
+4s2 received 2 packets, counter ID: 301
+5s3 sent 2 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:31
+1s3 received 2 packets, counter ID: 300
+2s2 sent 2 packets, counter ID: 300
+3s2->s3
+4s2 received 2 packets, counter ID: 301
+5s3 sent 2 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:33
+1s3 received 2 packets, counter ID: 300
+2s2 sent 2 packets, counter ID: 300
+3s2->s3
+4s2 received 2 packets, counter ID: 301
+5s3 sent 2 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:35
+1s3 received 2 packets, counter ID: 300
+2s2 sent 2 packets, counter ID: 300
+3s2->s3
+4s2 received 2 packets, counter ID: 301
+5s3 sent 2 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:37
+1s3 received 2 packets, counter ID: 300
+2s2 sent 2 packets, counter ID: 300
+3s2->s3
+4s2 received 2 packets, counter ID: 301
+5s3 sent 2 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:39
+1s3 received 0 packets, counter ID: 300
+2s2 sent 0 packets, counter ID: 300
+3s2->s3
+4s2 received 0 packets, counter ID: 301
+5s3 sent 0 packets, counter ID: 301
+6s3->s2
+
+# 2025-11-10 01:57:41
+1s3 received 0 packets, counter ID: 300
+2s2 sent 0 packets, counter ID: 300
+3s2->s3
+4s2 received 0 packets, counter ID: 301
+5s3 sent 0 packets, counter ID: 301
+6s3->s2

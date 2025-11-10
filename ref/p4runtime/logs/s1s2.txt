@@ -1,0 +1,89 @@
+# s1s2 link statistics - Started: 2025-11-10 01:57:21.410766
+
+# 2025-11-10 01:57:21
+1s2 received 0 packets, counter ID: 100
+2s1 sent 0 packets, counter ID: 100
+3s1->s2
+4s1 received 0 packets, counter ID: 101
+5s2 sent 0 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:23
+1s2 received 0 packets, counter ID: 100
+2s1 sent 0 packets, counter ID: 100
+3s1->s2
+4s1 received 0 packets, counter ID: 101
+5s2 sent 0 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:25
+1s2 received 2 packets, counter ID: 100
+2s1 sent 2 packets, counter ID: 100
+3s1->s2
+4s1 received 2 packets, counter ID: 101
+5s2 sent 2 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:27
+1s2 received 2 packets, counter ID: 100
+2s1 sent 2 packets, counter ID: 100
+3s1->s2
+4s1 received 2 packets, counter ID: 101
+5s2 sent 2 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:29
+1s2 received 2 packets, counter ID: 100
+2s1 sent 2 packets, counter ID: 100
+3s1->s2
+4s1 received 2 packets, counter ID: 101
+5s2 sent 2 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:31
+1s2 received 2 packets, counter ID: 100
+2s1 sent 2 packets, counter ID: 100
+3s1->s2
+4s1 received 2 packets, counter ID: 101
+5s2 sent 2 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:33
+1s2 received 2 packets, counter ID: 100
+2s1 sent 2 packets, counter ID: 100
+3s1->s2
+4s1 received 2 packets, counter ID: 101
+5s2 sent 2 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:35
+1s2 received 2 packets, counter ID: 100
+2s1 sent 2 packets, counter ID: 100
+3s1->s2
+4s1 received 2 packets, counter ID: 101
+5s2 sent 2 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:37
+1s2 received 2 packets, counter ID: 100
+2s1 sent 2 packets, counter ID: 100
+3s1->s2
+4s1 received 2 packets, counter ID: 101
+5s2 sent 2 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:39
+1s2 received 0 packets, counter ID: 100
+2s1 sent 0 packets, counter ID: 100
+3s1->s2
+4s1 received 0 packets, counter ID: 101
+5s2 sent 0 packets, counter ID: 101
+6s2->s1
+
+# 2025-11-10 01:57:41
+1s2 received 0 packets, counter ID: 100
+2s1 sent 0 packets, counter ID: 100
+3s1->s2
+4s1 received 0 packets, counter ID: 101
+5s2 sent 0 packets, counter ID: 101
+6s2->s1

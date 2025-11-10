@@ -1,0 +1,1383 @@
+
+[2025-11-10 06:57:21.423] /p4.v1.P4Runtime/SetForwardingPipelineConfig
+---
+Message too long (43037 bytes)! Skipping log...
+---
+
+[2025-11-10 06:57:21.439] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 37375156
+      match {
+        field_id: 1
+        lpm {
+          value: "\n\000\001\001"
+          prefix_len: 32
+        }
+      }
+      action {
+        action {
+          action_id: 24181246
+          params {
+            param_id: 1
+            value: "\000e"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.440] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 37375156
+      match {
+        field_id: 1
+        lpm {
+          value: "\n\000\003\003"
+          prefix_len: 32
+        }
+      }
+      action {
+        action {
+          action_id: 24181246
+          params {
+            param_id: 1
+            value: "\001,"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.442] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 35862311
+      match {
+        field_id: 1
+        exact {
+          value: "\000d"
+        }
+      }
+      action {
+        action {
+          action_id: 33029817
+          params {
+            param_id: 1
+            value: "\010\000\000\000\002\""
+          }
+          params {
+            param_id: 2
+            value: "\000\001"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.442] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 35862311
+      match {
+        field_id: 1
+        exact {
+          value: "\000e"
+        }
+      }
+      action {
+        action {
+          action_id: 27454791
+          params {
+            param_id: 1
+            value: "\000\002"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.445] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 35862311
+      match {
+        field_id: 1
+        exact {
+          value: "\001,"
+        }
+      }
+      action {
+        action {
+          action_id: 27454791
+          params {
+            param_id: 1
+            value: "\000\003"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.449] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 35862311
+      match {
+        field_id: 1
+        exact {
+          value: "\001-"
+        }
+      }
+      action {
+        action {
+          action_id: 33029817
+          params {
+            param_id: 1
+            value: "\010\000\000\000\002\""
+          }
+          params {
+            param_id: 2
+            value: "\000\001"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.451] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 35372062
+      match {
+        field_id: 1
+        exact {
+          value: "\000\001"
+        }
+      }
+      match {
+        field_id: 2
+        lpm {
+          value: "\n\000\002\024"
+          prefix_len: 32
+        }
+      }
+      action {
+        action {
+          action_id: 23911168
+          params {
+            param_id: 1
+            value: "\010\000\000\000\002\000"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.453] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.453] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.457] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.458] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.459] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.459] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.464] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:21.465] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.468] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.469] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.478] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.480] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.482] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.483] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.487] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:23.488] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.493] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.493] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.496] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.498] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.499] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.499] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.505] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:25.506] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.509] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.510] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.514] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.516] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.517] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.518] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.524] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:27.525] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.530] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.531] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.535] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.538] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.539] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.540] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.545] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:29.546] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.550] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.551] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.554] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.556] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.557] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.558] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.561] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:31.563] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.566] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.567] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.572] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.575] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.578] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.578] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.583] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:33.585] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.589] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.589] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.593] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.594] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.595] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.596] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.601] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:35.605] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.609] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.611] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.616] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.618] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.620] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.621] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.626] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:37.628] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.632] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.633] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.638] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.640] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.642] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.642] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.648] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:39.651] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.654] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.655] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.658] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.659] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.660] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.661] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 101
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.667] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 300
+    }
+  }
+}
+---
+
+[2025-11-10 06:57:41.668] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 301
+    }
+  }
+}
+---
