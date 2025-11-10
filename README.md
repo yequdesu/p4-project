@@ -1,22 +1,23 @@
 # P4项目：多模态可编程网络转发
 
 ## 项目概述
-本项目基于P4语言实现了一个支持多协议转发的可编程网络系统，通过隧道封装技术实现IPv4/IPv6双模态转发，并支持源路由等扩展功能。
+本项目基于P4语言实现了一个支持多协议转发的可编程网络系统，支持IPv4/IPv6双模态转发、Yequdesu自定义隧道协议和源路由等扩展功能。
 
 ## 网络拓扑
 - 主机：h1 (10.0.1.1, 2001:db8:1::1), h2 (10.0.2.2, 2001:db8:1::2)
-- 交换机：s1, s2, s11, s12, s21, s22
+- 交换机：s1, s2, s11, s12, s21, s22, s31, s32
 - IPv4路径：h1 → s1 → s11 → s12 → s2 → h2
 - IPv6路径：h1 → s1 → s21 → s22 → s2 → h2
+- Yequdesu隧道路径：h1 → s1 → s31 → s32 → s2 → h2
 
 ## Level 1: IPv4单模态网络
 实现基本的IPv4转发功能：
-- 使用myTunnel头部进行数据包封装，实现多跳路由
-- s11、s12作为纯转发节点，只处理隧道包
+- 移除原有的myTunnel头部，使用直接路由转发
+- s11、s12作为纯转发节点，处理IPv4包
 - 通过P4Runtime动态配置转发规则
 - 支持ARP请求响应和校验和计算
 
-验证方法：使用pingall测试连通性，通过tcpdump抓包验证隧道封装。
+验证方法：使用pingall测试连通性，通过tcpdump抓包验证包转发。
 
 ## Level 2: IPv4/IPv6双模态网络
 在单模态基础上扩展IPv6支持：
@@ -25,17 +26,78 @@
 - s1和s2支持双栈转发，同时处理IPv4和IPv6
 - IPv6包进行hop limit递减处理
 
-验证方法：使用Scapy构造IPv6包测试，通过抓包确认IPv6隧道封装。
+验证方法：使用Scapy构造IPv6包测试，通过抓包确认IPv6包转发。
 
 ## Level 3: 多模态网络扩展
 进一步扩展网络功能：
 - 集成源路由(srcRoute)头部，支持显式路径控制
-- 实现多种转发模态并存（如传统路由、隧道、源路由）
+- 新增Yequdesu自定义隧道协议，支持IPv4封装
+- 实现多种转发模态并存（传统路由、Yequdesu隧道、源路由）
 - 支持双向通信和复杂路由策略
 - 为未来网络协议扩展提供基础架构
+
+### Yequdesu隧道协议
+- **协议标识**：EtherType 0x1313
+- **头部结构**：proto_id (16位) + dst_id (16位)
+- **转发路径**：h1 → s1 → s31 → s32 → s2 → h2
+- **封装内容**：IPv4数据包
+- **使用方法**：
+  ```bash
+  # 发送Yequdesu隧道包
+  python3 send.py --ip tunnel:10.0.2.2 --message "Hello Tunnel"
+
+  # 接收Yequdesu包
+  python3 receive.py --tunnel
+  ```
 
 ## 技术实现
 - **P4程序**：定义多协议解析器、转发动作和匹配表
 - **控制器**：基于P4Runtime的Python控制器，动态规则部署
-- **测试工具**：提供完整的收发包和验证工具集
+- **测试工具**：
+  - `send.py`：统一发送接口，支持IPv4/IPv6/Yequdesu隧道
+  - `receive.py`：统一接收接口，支持所有协议类型
+  - `send_ipv4.py`：IPv4包发送
+  - `receive_ipv4.py`：IPv4包接收
+  - `send_ipv6.py`：IPv6包发送
+  - `receive_ipv6.py`：IPv6包接收
+  - `send_src.py`：源路由包发送
+  - `receive_src.py`：源路由包接收
+  - `send_tunnel.py`：Yequdesu隧道包发送
+  - `receive_tunnel.py`：Yequdesu隧道包接收
 - **参考实现**：包含IPv6转发、P4Runtime隧道和源路由等示例
+
+## 使用方法
+
+### 1. 编译和运行
+```bash
+make clean
+make
+python3 controller.py
+```
+
+### 2. 测试不同模态
+```bash
+# IPv4转发
+python3 send.py --ip 10.0.2.2 --message "IPv4 Hello"
+
+# IPv6转发
+python3 send.py --ip 2001:db8:1::2 --message "IPv6 Hello"
+
+# Yequdesu隧道
+python3 send.py --ip tunnel:10.0.2.2 --message "Tunnel Hello"
+
+# 源路由
+python3 send_src.py 10.0.2.2 "Source Route Hello"
+```
+
+### 3. 接收测试
+```bash
+# 接收所有类型包
+python3 receive.py --all
+
+# 只接收特定类型
+python3 receive.py --ipv4
+python3 receive.py --ipv6
+python3 receive.py --tunnel
+python3 receive.py --src-route
+```

@@ -43,6 +43,16 @@ class IPv4Controller:
             ('s1', "10.0.1.1"): ("08:00:00:00:01:11", 1),   # s1 to h1 directly (port 1)
         }
 
+        # Yequdesu tunnel routes: (switch, dst_ip): tunnel_id
+        self.yequdesu_routes = {
+            ('s1', "10.0.2.2"): 300,  # s1 to h2 via yequdesu tunnel
+        }
+
+        # Yequdesu tunnel forwarding: tunnel_id: (src_switch, dst_switch, output_port, dst_mac)
+        self.yequdesu_mappings = {
+            300: ('s1', 's2', 4, "08:00:00:00:02:22"),  # New path: s1 -> s31 -> s32 -> s2 -> h2
+        }
+
         # Direct IPv6 routes: (switch, dst_ipv6): (dst_mac, port)
         self.ipv6_routes = {
             # IPv6 routing: h1-s1-s21-s22-s2-h2
@@ -73,6 +83,8 @@ class IPv4Controller:
             ('s12', '127.0.0.1:50054', 3),
             ('s21', '127.0.0.1:50055', 4),
             ('s22', '127.0.0.1:50056', 5),
+            ('s31', '127.0.0.1:50057', 6),
+            ('s32', '127.0.0.1:50058', 7),
         ]
 
         for name, address, device_id in switch_configs:
@@ -93,7 +105,7 @@ class IPv4Controller:
         """Deploy all forwarding rules"""
         self._deploy_ipv4_rules()
         self._deploy_ipv6_rules()
-        self._deploy_tunnel_rules()
+        self._deploy_yequdesu_rules()
         self._deploy_arp_rules()
         print("All forwarding rules deployed")
 
@@ -117,6 +129,78 @@ class IPv4Controller:
                     print(f"Modified IPv4 route: {sw_name} -> {dst_ip} via port {port}")
                 except grpc.RpcError as e2:
                     print(f"Failed to modify IPv4 route {sw_name} -> {dst_ip}: {e2}")
+
+    def _deploy_yequdesu_rules(self):
+        """Deploy Yequdesu tunnel rules"""
+        # Deploy ingress rules
+        for (sw_name, dst_ip), tunnel_id in self.yequdesu_routes.items():
+            table_entry = self.p4info_helper.buildTableEntry(
+                table_name="MyIngress.ipv4_lpm",
+                match_fields={"hdr.ipv4.dstAddr": (dst_ip, 32)},
+                action_name="MyIngress.yequdesu_ingress",
+                action_params={"dst_id": tunnel_id}
+            )
+            try:
+                self.switches[sw_name].WriteTableEntry(table_entry)
+                print(f"Added Yequdesu tunnel ingress: {sw_name} -> {dst_ip} via tunnel {tunnel_id}")
+            except grpc.RpcError as e:
+                print(f"Failed to add Yequdesu tunnel ingress {sw_name} -> {dst_ip}: {e}")
+
+        # Deploy forwarding rules for the tunnel path: s1 -> s31 -> s32 -> s2
+        # s1 forwards to s31
+        s1_forward = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 300},
+            action_name="MyIngress.yequdesu_forward",
+            action_params={"port": 4}  # s1 port 4 -> s31
+        )
+        try:
+            self.switches['s1'].WriteTableEntry(s1_forward)
+            print("Added Yequdesu tunnel forward: s1 tunnel 300 -> port 4 (s31)")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel forward s1 -> s31: {e}")
+
+        # s31 forwards to s32
+        s31_forward = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 300},
+            action_name="MyIngress.yequdesu_forward",
+            action_params={"port": 2}  # s31 port 2 -> s32
+        )
+        try:
+            self.switches['s31'].WriteTableEntry(s31_forward)
+            print("Added Yequdesu tunnel forward: s31 tunnel 300 -> port 2 (s32)")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel forward s31 -> s32: {e}")
+
+        # s32 forwards to s2
+        s32_forward = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 300},
+            action_name="MyIngress.yequdesu_forward",
+            action_params={"port": 2}  # s32 port 2 -> s2
+        )
+        try:
+            self.switches['s32'].WriteTableEntry(s32_forward)
+            print("Added Yequdesu tunnel forward: s32 tunnel 300 -> port 2 (s2)")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel forward s32 -> s2: {e}")
+
+        # s2 egress to h2
+        s2_egress = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 300},
+            action_name="MyIngress.yequdesu_egress",
+            action_params={
+                "dstAddr": "08:00:00:00:02:22",  # h2 MAC
+                "port": 1  # s2 port 1 -> h2
+            }
+        )
+        try:
+            self.switches['s2'].WriteTableEntry(s2_egress)
+            print("Added Yequdesu tunnel egress: s2 tunnel 300 -> h2 port 1")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel egress s2 -> h2: {e}")
 
     def _deploy_ipv6_rules(self):
         """Deploy IPv6 routing rules with direct forwarding"""

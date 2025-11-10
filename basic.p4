@@ -3,7 +3,7 @@
 #include <core.p4>
 #include <v1model.p4>
 
-const bit<16> TYPE_MYTUNNEL = 0x1212;
+const bit<16> TYPE_YEQUDESU = 0x1313;
 const bit<16> TYPE_IPV4 = 0x800;
 const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
@@ -30,6 +30,11 @@ header ethernet_t {
     macAddr_t dstAddr;
     macAddr_t srcAddr;
     bit<16>   etherType;
+}
+
+header yequdesu_t {
+    bit<16> proto_id;
+    bit<16> dst_id;
 }
 
 
@@ -82,6 +87,7 @@ struct metadata {
 
 struct headers {
     ethernet_t              ethernet;
+    yequdesu_t              yequdesu;
     srcRoute_t[MAX_HOPS]    srcRoutes;
     arp_t                   arp;
     ipv4_t                  ipv4;
@@ -104,10 +110,19 @@ parser MyParser(packet_in packet,
     state parse_ethernet {
         packet.extract(hdr.ethernet);
         transition select(hdr.ethernet.etherType) {
+            TYPE_YEQUDESU: parse_yequdesu;
             TYPE_SRCROUTING: parse_srcRouting;
             TYPE_IPV4: parse_ipv4;
             TYPE_IPV6: parse_ipv6;
             TYPE_ARP: parse_arp;
+            default: accept;
+        }
+    }
+
+    state parse_yequdesu {
+        packet.extract(hdr.yequdesu);
+        transition select(hdr.yequdesu.proto_id) {
+            TYPE_IPV4: parse_ipv4;
             default: accept;
         }
     }
@@ -174,6 +189,24 @@ control MyIngress(inout headers hdr,
         hdr.ipv6.hopLimit = hdr.ipv6.hopLimit - 1;
     }
 
+    action yequdesu_forward(egressSpec_t port) {
+        standard_metadata.egress_spec = port;
+    }
+
+    action yequdesu_egress(macAddr_t dstAddr, egressSpec_t port) {
+        standard_metadata.egress_spec = port;
+        hdr.ethernet.dstAddr = dstAddr;
+        hdr.ethernet.etherType = hdr.yequdesu.proto_id;
+        hdr.yequdesu.setInvalid();
+    }
+
+
+    action yequdesu_ingress(bit<16> dst_id) {
+        hdr.yequdesu.setValid();
+        hdr.yequdesu.dst_id = dst_id;
+        hdr.yequdesu.proto_id = hdr.ethernet.etherType;
+        hdr.ethernet.etherType = TYPE_YEQUDESU;
+    }
 
     table ipv4_lpm {
         key = {
@@ -181,6 +214,7 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ipv4_forward;
+            yequdesu_ingress;
             drop;
             NoAction;
         }
@@ -294,6 +328,19 @@ control MyIngress(inout headers hdr,
         hdr.ethernet.dstAddr = dstAddr;
     }
 
+    table yequdesu_exact {
+        key = {
+            hdr.yequdesu.dst_id: exact;
+        }
+        actions = {
+            yequdesu_forward;
+            yequdesu_egress;
+            drop;
+        }
+        size = 1024;
+        default_action = drop();
+    }
+
     table ipv4_lpm_src {
         key = {
             hdr.ipv4.dstAddr: lpm;
@@ -348,6 +395,12 @@ control MyIngress(inout headers hdr,
                 }
                 srcRoute_nhop();
                 update_ttl();
+            }
+        }
+        else if (hdr.ethernet.etherType == TYPE_YEQUDESU) {
+            // Yequdesu tunnel modality
+            if (hdr.yequdesu.isValid()) {
+                yequdesu_exact.apply();
             }
         }
         else {
@@ -406,6 +459,7 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
 control MyDeparser(packet_out packet, in headers hdr) {
     apply {
         packet.emit(hdr.ethernet);
+        packet.emit(hdr.yequdesu);
         packet.emit(hdr.srcRoutes);
         packet.emit(hdr.arp);
         packet.emit(hdr.ipv4);

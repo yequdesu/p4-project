@@ -32,24 +32,30 @@ def main():
             print("send_src.py not found")
         return
 
-    # Determine if IPv4 or IPv6
-    try:
-        # Try to parse as IPv4
-        parts = args.ip.split('.')
-        if len(parts) == 4 and all(part.isdigit() and 0 <= int(part) <= 255 for part in parts):
-            # IPv4 - send_ipv4.py expects: <destination> "<message>"
-            cmd = ['python3', 'send_ipv4.py', args.ip, args.message]
-        else:
-            # Try IPv6
-            if ':' in args.ip:
-                # IPv6 - send_ipv6.py expects: <destination> "<message>"
-                cmd = ['python3', 'send_ipv6.py', args.ip, args.message]
+    # Check for tunnel mode
+    if args.ip.startswith('tunnel:'):
+        # Yequdesu tunnel mode - send_tunnel.py expects: <destination> "<message>"
+        actual_ip = args.ip[7:]  # Remove 'tunnel:' prefix
+        cmd = ['python3', 'send_tunnel.py', actual_ip, args.message]
+    else:
+        # Determine if IPv4 or IPv6
+        try:
+            # Try to parse as IPv4
+            parts = args.ip.split('.')
+            if len(parts) == 4 and all(part.isdigit() and 0 <= int(part) <= 255 for part in parts):
+                # IPv4 - send_ipv4.py expects: <destination> "<message>"
+                cmd = ['python3', 'send_ipv4.py', args.ip, args.message]
             else:
-                print("Invalid IP address format")
-                return
-    except:
-        print("Invalid IP address format")
-        return
+                # Try IPv6
+                if ':' in args.ip:
+                    # IPv6 - send_ipv6.py expects: <destination> "<message>"
+                    cmd = ['python3', 'send_ipv6.py', args.ip, args.message]
+                else:
+                    print("Invalid IP address format")
+                    return
+        except:
+            print("Invalid IP address format")
+            return
 
     # Execute the appropriate sender
     try:
