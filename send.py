@@ -1,40 +1,46 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-2.0-only
-# Reason-GPL: import-scapy
-import random
-import socket
+"""
+Unified packet sender for IPv4 and IPv6 testing
+"""
+
+import argparse
 import sys
-
-from scapy.all import IP, TCP, Ether, get_if_hwaddr, get_if_list, sendp
-
-
-def get_if():
-    ifs=get_if_list()
-    iface=None # "h1-eth0"
-    for i in get_if_list():
-        if "eth0" in i:
-            iface=i
-            break;
-    if not iface:
-        print("Cannot find eth0 interface")
-        exit(1)
-    return iface
+import subprocess
 
 def main():
+    parser = argparse.ArgumentParser(description='Unified packet sender')
+    parser.add_argument('--ip', help='Destination IP (IPv4 or IPv6)', required=True)
+    parser.add_argument('--count', type=int, default=1, help='Number of packets to send (IPv4 only)')
+    parser.add_argument('--message', default='Hello', help='Message to send')
 
-    if len(sys.argv)<3:
-        print('pass 2 arguments: <destination> "<message>"')
-        exit(1)
+    args = parser.parse_args()
 
-    addr = socket.gethostbyname(sys.argv[1])
-    iface = get_if()
+    # Determine if IPv4 or IPv6
+    try:
+        # Try to parse as IPv4
+        parts = args.ip.split('.')
+        if len(parts) == 4 and all(part.isdigit() and 0 <= int(part) <= 255 for part in parts):
+            # IPv4 - send_ipv4.py expects: <destination> "<message>"
+            cmd = ['python3', 'send_ipv4.py', args.ip, args.message]
+        else:
+            # Try IPv6
+            if ':' in args.ip:
+                # IPv6 - send_ipv6.py expects: <destination> "<message>"
+                cmd = ['python3', 'send_ipv6.py', args.ip, args.message]
+            else:
+                print("Invalid IP address format")
+                return
+    except:
+        print("Invalid IP address format")
+        return
 
-    print("sending on interface %s to %s" % (iface, str(addr)))
-    pkt =  Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff')
-    pkt = pkt /IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152,65535)) / sys.argv[2]
-    pkt.show2()
-    sendp(pkt, iface=iface, verbose=False)
-
+    # Execute the appropriate sender
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to send packet: {e}")
+    except FileNotFoundError:
+        print(f"Sender script not found for IP: {args.ip}")
 
 if __name__ == '__main__':
     main()

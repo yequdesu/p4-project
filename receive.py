@@ -1,61 +1,53 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-2.0-only
-# Reason-GPL: import-scapy
-import os
+"""
+Unified packet receiver for IPv4 and IPv6 testing
+"""
+
+import argparse
 import sys
+import subprocess
+import threading
+import time
 
-from scapy.all import (
-    TCP,
-    FieldLenField,
-    FieldListField,
-    IntField,
-    IPOption,
-    ShortField,
-    get_if_list,
-    sniff
-)
-from scapy.layers.inet import _IPOption_HDR
-
-
-def get_if():
-    ifs=get_if_list()
-    iface=None
-    for i in get_if_list():
-        if "eth0" in i:
-            iface=i
-            break;
-    if not iface:
-        print("Cannot find eth0 interface")
-        exit(1)
-    return iface
-
-class IPOption_MRI(IPOption):
-    name = "MRI"
-    option = 31
-    fields_desc = [ _IPOption_HDR,
-                    FieldLenField("length", None, fmt="B",
-                                  length_of="swids",
-                                  adjust=lambda pkt,l:l+4),
-                    ShortField("count", 0),
-                    FieldListField("swids",
-                                   [],
-                                   IntField("", 0),
-                                   length_from=lambda pkt:pkt.count*4) ]
-def handle_pkt(pkt):
-    if TCP in pkt and pkt[TCP].dport == 1234:
-        print("got a packet")
-        pkt.show2()
-    #    hexdump(pkt)
-        sys.stdout.flush()
-
+def run_receiver(script_name):
+    """Run a receiver script in background"""
+    try:
+        subprocess.run(['python3', script_name], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Receiver {script_name} failed: {e}")
+    except KeyboardInterrupt:
+        print(f"Stopped {script_name}")
 
 def main():
-    ifaces = [i for i in os.listdir('/sys/class/net/') if 'eth' in i]
-    iface = ifaces[0]
-    print("sniffing on %s" % iface)
-    sys.stdout.flush()
-    sniff(iface = iface,
-          prn = lambda x: handle_pkt(x))
+    parser = argparse.ArgumentParser(description='Unified packet receiver')
+    parser.add_argument('--ipv4', action='store_true', help='Run IPv4 receiver only')
+    parser.add_argument('--ipv6', action='store_true', help='Run IPv6 receiver only')
+    parser.add_argument('--both', action='store_true', help='Run both IPv4 and IPv6 receivers')
+
+    args = parser.parse_args()
+
+    if args.both or (not args.ipv4 and not args.ipv6):
+        # Run both receivers in parallel
+        print("Starting both IPv4 and IPv6 receivers...")
+        ipv4_thread = threading.Thread(target=run_receiver, args=('receive_ipv4.py',))
+        ipv6_thread = threading.Thread(target=run_receiver, args=('receive_ipv6.py',))
+
+        ipv4_thread.start()
+        ipv6_thread.start()
+
+        try:
+            ipv4_thread.join()
+            ipv6_thread.join()
+        except KeyboardInterrupt:
+            print("\nStopping receivers...")
+
+    elif args.ipv4:
+        print("Starting IPv4 receiver...")
+        run_receiver('receive_ipv4.py')
+
+    elif args.ipv6:
+        print("Starting IPv6 receiver...")
+        run_receiver('receive_ipv6.py')
 
 if __name__ == '__main__':
     main()
