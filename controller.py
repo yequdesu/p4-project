@@ -36,6 +36,9 @@ class IPv4Controller:
             ('s12', "10.0.2.2"): ("ff:ff:ff:ff:ff:ff", 2),  # s12 to h2 via s2 (port 2)
             ('s2', "10.0.2.2"): ("08:00:00:00:02:22", 1),   # s2 to h2 directly (port 1)
 
+            # IPv6 tunnel encapsulation trigger - use a specific IP to trigger encapsulation
+            ('s1', "10.0.2.10"): ("ff:ff:ff:ff:ff:ff", 3),  # s1 to trigger IPv6 tunnel encapsulation via s21
+
             # Yequdesu tunnel destination routes (within subnets)
             ('s1', "10.0.2.4"): ("ff:ff:ff:ff:ff:ff", 2),   # s1 to h2 tunnel endpoint via s11 (port 2)
             ('s11', "10.0.2.4"): ("ff:ff:ff:ff:ff:ff", 2),  # s11 to h2 tunnel endpoint via s12 (port 2)
@@ -81,6 +84,18 @@ class IPv4Controller:
             ('s22', "2001:db8:1::1"): ("ff:ff:ff:ff:ff:ff", 1),  # s22 to h1 via s21 (port 1)
             ('s21', "2001:db8:1::1"): ("ff:ff:ff:ff:ff:ff", 1),  # s21 to h1 via s1 (port 1)
             ('s1', "2001:db8:1::1"): ("08:00:00:00:01:11", 1),   # s1 to h1 directly (port 1)
+
+            # IPv6 tunnel routes for IPv6 encapsulated IPv4 packets
+            ('s1', "2001:db8::2"): ("ff:ff:ff:ff:ff:ff", 3),     # s1 to s2 IPv6 tunnel via s21 (port 3)
+            ('s21', "2001:db8::2"): ("ff:ff:ff:ff:ff:ff", 2),    # s21 to s2 IPv6 tunnel via s22 (port 2)
+            ('s22', "2001:db8::2"): ("ff:ff:ff:ff:ff:ff", 2),    # s22 to s2 IPv6 tunnel via s2 (port 2)
+            ('s2', "2001:db8::2"): ("08:00:00:00:02:22", 1),    # s2 IPv6 tunnel decap to h2 (port 1)
+
+            # Return path for IPv6 tunnel
+            ('s2', "2001:db8::1"): ("ff:ff:ff:ff:ff:ff", 3),     # s2 to s1 IPv6 tunnel via s22 (port 3)
+            ('s22', "2001:db8::1"): ("ff:ff:ff:ff:ff:ff", 1),    # s22 to s1 IPv6 tunnel via s21 (port 1)
+            ('s21', "2001:db8::1"): ("ff:ff:ff:ff:ff:ff", 1),    # s21 to s1 IPv6 tunnel via s1 (port 1)
+            ('s1', "2001:db8::1"): ("08:00:00:00:01:11", 1),    # s1 IPv6 tunnel decap to h1 (port 1)
         }
 
         # ARP rules: (switch, target_ip, reply_mac)
@@ -140,23 +155,36 @@ class IPv4Controller:
         print("All forwarding rules deployed")
 
     def _deploy_ipv4_rules(self):
-        """Deploy IPv4 routing rules with direct forwarding"""
+        """Deploy IPv4 routing rules with direct forwarding and IPv6 tunnel encapsulation"""
         for (sw_name, dst_ip), (dst_mac, port) in self.ip_routes.items():
-            table_entry = self.p4info_helper.buildTableEntry(
-                table_name="MyIngress.ipv4_lpm",
-                match_fields={"hdr.ipv4.dstAddr": (dst_ip, 32)},
-                action_name="MyIngress.ipv4_forward",
-                action_params={"dstAddr": dst_mac, "port": port}
-            )
+            # Check if this is the IPv6 tunnel encapsulation trigger
+            if sw_name == 's1' and dst_ip == "10.0.2.10":
+                # Use IPv6 encapsulation action for this specific route
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name="MyIngress.ipv4_lpm",
+                    match_fields={"hdr.ipv4.dstAddr": (dst_ip, 32)},
+                    action_name="MyIngress.ipv6_encap_ipv4",
+                    action_params={"dstAddr": dst_mac, "port": port}
+                )
+            else:
+                # Use normal IPv4 forwarding for other routes
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name="MyIngress.ipv4_lpm",
+                    match_fields={"hdr.ipv4.dstAddr": (dst_ip, 32)},
+                    action_name="MyIngress.ipv4_forward",
+                    action_params={"dstAddr": dst_mac, "port": port}
+                )
             try:
                 self.switches[sw_name].WriteTableEntry(table_entry)
-                print(f"Added IPv4 route: {sw_name} -> {dst_ip} via port {port}")
+                action_type = "IPv6 tunnel encap" if dst_ip == "10.0.2.10" else "IPv4 forward"
+                print(f"Added {action_type} route: {sw_name} -> {dst_ip} via port {port}")
             except grpc.RpcError as e:
                 print(f"Failed to add IPv4 route {sw_name} -> {dst_ip}: {e}")
                 # Try to modify if entry exists
                 try:
                     self.switches[sw_name].ModifyTableEntry(table_entry)
-                    print(f"Modified IPv4 route: {sw_name} -> {dst_ip} via port {port}")
+                    action_type = "IPv6 tunnel encap" if dst_ip == "10.0.2.10" else "IPv4 forward"
+                    print(f"Modified {action_type} route: {sw_name} -> {dst_ip} via port {port}")
                 except grpc.RpcError as e2:
                     print(f"Failed to modify IPv4 route {sw_name} -> {dst_ip}: {e2}")
 
@@ -304,23 +332,36 @@ class IPv4Controller:
             print(f"Failed to add Yequdesu tunnel egress s1 -> h1: {e}")
 
     def _deploy_ipv6_rules(self):
-        """Deploy IPv6 routing rules with direct forwarding"""
+        """Deploy IPv6 routing rules with direct forwarding and tunnel decap"""
         for (sw_name, dst_ipv6), (dst_mac, port) in self.ipv6_routes.items():
-            table_entry = self.p4info_helper.buildTableEntry(
-                table_name="MyIngress.ipv6_lpm",
-                match_fields={"hdr.ipv6.dstAddr": (dst_ipv6, 128)},
-                action_name="MyIngress.ipv6_forward",
-                action_params={"dstAddr": dst_mac, "port": port}
-            )
+            # Check if this is a decap route (port 1 for s1 and s2)
+            if (sw_name == 's1' and dst_ipv6 == "2001:db8::1") or (sw_name == 's2' and dst_ipv6 == "2001:db8::2"):
+                # Use decap action for tunnel endpoints
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name="MyIngress.ipv6_lpm",
+                    match_fields={"hdr.ipv6.dstAddr": (dst_ipv6, 128)},
+                    action_name="MyIngress.ipv6_decap_ipv4",
+                    action_params={"dstAddr": dst_mac, "port": port}
+                )
+            else:
+                # Use forward action for intermediate switches
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name="MyIngress.ipv6_lpm",
+                    match_fields={"hdr.ipv6.dstAddr": (dst_ipv6, 128)},
+                    action_name="MyIngress.ipv6_forward",
+                    action_params={"dstAddr": dst_mac, "port": port}
+                )
             try:
                 self.switches[sw_name].WriteTableEntry(table_entry)
-                print(f"Added IPv6 route: {sw_name} -> {dst_ipv6} via port {port}")
+                action_type = "decap" if "decap" in str(table_entry.action) else "forward"
+                print(f"Added IPv6 {action_type} route: {sw_name} -> {dst_ipv6} via port {port}")
             except grpc.RpcError as e:
                 print(f"Failed to add IPv6 route {sw_name} -> {dst_ipv6}: {e}")
                 # Try to modify if entry exists
                 try:
                     self.switches[sw_name].ModifyTableEntry(table_entry)
-                    print(f"Modified IPv6 route: {sw_name} -> {dst_ipv6} via port {port}")
+                    action_type = "decap" if "decap" in str(table_entry.action) else "forward"
+                    print(f"Modified IPv6 {action_type} route: {sw_name} -> {dst_ipv6} via port {port}")
                 except grpc.RpcError as e2:
                     print(f"Failed to modify IPv6 route {sw_name} -> {dst_ipv6}: {e2}")
 

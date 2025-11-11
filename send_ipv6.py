@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IPv6 packet sender for testing
+IPv6 encapsulated IPv4 packet sender for testing
 """
 
 import argparse
@@ -9,7 +9,7 @@ import socket
 import sys
 
 from scapy.all import sendp, get_if_list, get_if_hwaddr
-from scapy.all import Ether, IPv6, UDP
+from scapy.all import Ether, IP, UDP
 
 
 def get_if():
@@ -27,19 +27,23 @@ def get_if():
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Send IPv6 packet for testing')
-    parser.add_argument('--ip', required=True, help='Destination IPv6 address')
-    parser.add_argument('--message', default='Hello IPv6', help='Message to send')
+    parser = argparse.ArgumentParser(description='Send IPv4 packet that will be encapsulated in IPv6 tunnel')
+    parser.add_argument('--ip', help='Destination IPv4 address (default: 10.0.2.10 which triggers IPv6 encapsulation)')
+    parser.add_argument('--message', default='Hello IPv6 tunnel', help='Message to send')
     args = parser.parse_args()
+
+    # Default to the trigger IP address for IPv6 encapsulation
+    dst_ip = args.ip if args.ip else "10.0.2.10"
 
     iface = get_if()
 
-    print("Sending IPv6 packet on interface %s to %s" % (iface, args.ip))
+    print("Sending IPv4 packet on interface %s to %s (will be encapsulated in IPv6 tunnel by s1)" % (iface, dst_ip))
+    # Create IPv4 packet - this will be encapsulated by s1 switch
     pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff')
-    pkt = pkt / IPv6(src="2001:db8:1::1", dst=args.ip) / UDP(dport=4321, sport=1234) / args.message
+    pkt = pkt / IP(src="10.0.1.10", dst=dst_ip, ttl=64) / UDP(dport=4321, sport=1234) / args.message
     pkt.show2()
     sendp(pkt, iface=iface, verbose=False)
-    print("IPv6 packet sent successfully")
+    print("IPv4 packet sent successfully (IPv6 encapsulation will be done by s1 switch)")
 
 
 if __name__ == '__main__':

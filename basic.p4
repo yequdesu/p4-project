@@ -190,7 +190,10 @@ parser MyParser(packet_in packet,
 
     state parse_ipv6 {
         packet.extract(hdr.ipv6);
-        transition accept;
+        transition select(hdr.ipv6.nextHdr) {
+            4: parse_ipv4;  // IPv4 encapsulated in IPv6
+            default: accept;
+        }
     }
 
     state parse_srcRouting {
@@ -239,6 +242,14 @@ control MyIngress(inout headers hdr,
         hdr.ipv6.hopLimit = hdr.ipv6.hopLimit - 1;
     }
 
+    action ipv6_decap_ipv4(macAddr_t dstAddr, egressSpec_t port) {
+        standard_metadata.egress_spec = port;
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = dstAddr;
+        hdr.ethernet.etherType = TYPE_IPV4;
+        hdr.ipv6.setInvalid();
+    }
+
     action yequdesu_forward(egressSpec_t port) {
         standard_metadata.egress_spec = port;
     }
@@ -258,12 +269,32 @@ control MyIngress(inout headers hdr,
         hdr.ethernet.etherType = TYPE_YEQUDESU;
     }
 
+    action ipv6_encap_ipv4(macAddr_t dstAddr, egressSpec_t port) {
+        standard_metadata.egress_spec = port;
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = dstAddr;
+        hdr.ethernet.etherType = TYPE_IPV6;
+
+        hdr.ipv6.setValid();
+        hdr.ipv6.version = 6;
+        hdr.ipv6.trafficClass = 0;
+        hdr.ipv6.flowLabel = 0;
+        hdr.ipv6.payLoadLen = hdr.ipv4.totalLen;
+        hdr.ipv6.nextHdr = 4; // IPv4
+        hdr.ipv6.hopLimit = 64;
+        hdr.ipv6.srcAddr = 0x20010DB8000000000000000000000001; // 2001:db8::1
+        hdr.ipv6.dstAddr = 0x20010DB8000000000000000000000002; // 2001:db8::2
+
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+    }
+
     table ipv4_lpm {
         key = {
             hdr.ipv4.dstAddr: lpm;
         }
         actions = {
             ipv4_forward;
+            ipv6_encap_ipv4;
             yequdesu_ingress;
             drop;
             NoAction;
@@ -278,6 +309,7 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             ipv6_forward;
+            ipv6_decap_ipv4;
             drop;
             NoAction;
         }

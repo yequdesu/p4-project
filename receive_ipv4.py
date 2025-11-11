@@ -9,6 +9,9 @@ import sys
 
 from scapy.all import (
     TCP,
+    UDP,
+    IP,
+    Raw,
     FieldLenField,
     FieldListField,
     IntField,
@@ -52,7 +55,19 @@ def handle_pkt(pkt):
     """Handle received packet"""
     if TCP in pkt and pkt[TCP].dport == 1234:
         print("Received IPv4 packet:")
-        pkt.show2()
+        print(f"  Source: {pkt[IP].src}")
+        print(f"  Destination: {pkt[IP].dst}")
+        print(f"  TCP Port: {pkt[TCP].dport}")
+        if Raw in pkt:
+            print(f"  Payload: {pkt[Raw].load.decode('utf-8', errors='ignore')}")
+        sys.stdout.flush()
+    elif UDP in pkt and pkt[UDP].dport == 4321:
+        print("Received UDP IPv4 packet:")
+        print(f"  Source: {pkt[IP].src}")
+        print(f"  Destination: {pkt[IP].dst}")
+        print(f"  UDP Port: {pkt[UDP].dport}")
+        if Raw in pkt:
+            print(f"  Payload: {pkt[Raw].load.decode('utf-8', errors='ignore')}")
         sys.stdout.flush()
 
 
