@@ -1,14 +1,15 @@
 # P4项目：多模态可编程网络转发
 
 ## 项目概述
-本项目基于P4语言实现了一个支持多协议转发的可编程网络系统，支持IPv4/IPv6双模态转发、Yequdesu自定义隧道协议和源路由等扩展功能。
+本项目基于P4语言实现了一个支持多协议转发的可编程网络系统，支持IPv4/IPv6双模态转发、Yequdesu自定义隧道协议、VXLAN虚拟网络和源路由等扩展功能。所有模态都支持双向通信，且互不冲突。
 
 ## 网络拓扑
-- 主机：h1 (10.0.1.1, 2001:db8:1::1), h2 (10.0.2.2, 2001:db8:1::2)
-- 交换机：s1, s2, s11, s12, s21, s22, s31, s32
+- 主机：h1 (10.0.1.1/24, 2001:db8:1::1/64), h2 (10.0.2.2/24, 2001:db8:1::2/64)
+- 交换机：s1, s2, s11, s12, s21, s22, s31, s32, s41, s42
 - IPv4路径：h1 → s1 → s11 → s12 → s2 → h2
 - IPv6路径：h1 → s1 → s21 → s22 → s2 → h2
 - Yequdesu隧道路径：h1 → s1 → s31 → s32 → s2 → h2
+- VXLAN路径：h1 → s1 → s41 → s42 → s2 → h2
 
 ## Level 1: IPv4单模态网络
 实现基本的IPv4转发功能：
@@ -32,7 +33,8 @@
 进一步扩展网络功能：
 - 集成源路由(srcRoute)头部，支持显式路径控制
 - 新增Yequdesu自定义隧道协议，支持IPv4封装
-- 实现多种转发模态并存（传统路由、Yequdesu隧道、源路由）
+- 新增VXLAN虚拟网络覆盖，支持虚拟网络隔离
+- 实现多种转发模态并存（传统路由、Yequdesu隧道、VXLAN、源路由）
 - 支持双向通信和复杂路由策略
 - 为未来网络协议扩展提供基础架构
 
@@ -41,18 +43,65 @@
 - **头部结构**：proto_id (16位) + dst_id (16位)
 - **转发路径**：h1 → s1 → s31 → s32 → s2 → h2
 - **封装内容**：IPv4数据包
+- **目的IP**：10.0.2.4 (去程), 10.0.1.3 (回程)
 - **使用方法**：
   ```bash
   # 发送Yequdesu隧道包
-  python3 send.py --ip tunnel:10.0.2.2 --message "Hello Tunnel"
+  python3 send_tunnel.py 10.0.2.4 "Hello Tunnel"
 
   # 接收Yequdesu包
-  python3 receive.py --tunnel
+  python3 receive_tunnel.py
   ```
+
+### VXLAN虚拟网络
+- **协议**：基于UDP的虚拟网络覆盖
+- **端口**：UDP 4789
+- **VNI**：100 (去程), 101 (回程)
+- **转发路径**：h1 → s1 → s41 → s42 → s2 → h2
+- **使用方法**：
+  ```bash
+  # 发送VXLAN包
+  python3 send_vxlan.py 10.0.2.2 "Hello VXLAN"
+
+  # 接收VXLAN包
+  python3 receive_vxlan.py
+  ## 模态配置说明
+  
+  ### IPv4常规路由
+  - **目的IP**：10.0.2.2 (去程), 10.0.1.1 (回程)
+  - **路径**：h1 → s1 → s11 → s12 → s2 → h2
+  - **特点**：标准IPv4转发，不封装
+  
+  ### IPv6常规路由
+  - **目的IP**：2001:db8:1::2 (去程), 2001:db8:1::1 (回程)
+  - **路径**：h1 → s1 → s21 → s22 → s2 → h2
+  - **特点**：标准IPv6转发，包含hop limit处理
+  
+  ### Yequdesu隧道
+  - **目的IP**：10.0.2.4 (去程), 10.0.1.3 (回程)
+  - **路径**：h1 → s1 → s31 → s32 → s2 → h2
+  - **特点**：自定义隧道协议，EtherType 0x1313
+  - **解决冲突**：使用专用IP地址，避免与IPv4路由冲突
+  
+  ### VXLAN虚拟网络
+  - **目的IP**：10.0.2.2 (去程), 10.0.1.1 (回程)
+  - **路径**：h1 → s1 → s41 → s42 → s2 → h2
+  - **特点**：UDP封装，端口4789，支持VNI隔离
+  - **VNI**：100 (去程), 101 (回程)
+  
+  ### 源路由 (未完全配置)
+  - **特点**：显式路径控制，支持多跳路由
+  - **状态**：代码支持，但控制器中未配置具体规则
+  
+  ## 注意事项
+  - 所有模态都支持双向通信
+  - Yequdesu隧道使用专用IP地址避免与IPv4路由冲突
+  - VXLAN和IPv4可以共享相同目的IP（通过不同匹配条件区分）
+  - 建议使用自动化测试脚本进行完整的功能验证
 
 ## 技术实现
 - **P4程序**：定义多协议解析器、转发动作和匹配表
-- **控制器**：基于P4Runtime的Python控制器，动态规则部署
+- **控制器**：基于P4Runtime的Python控制器，动态规则部署，支持多模态冲突解决
 - **测试工具**：
   - `send.py`：统一发送接口，支持IPv4/IPv6/Yequdesu隧道
   - `receive.py`：统一接收接口，支持所有协议类型
@@ -64,7 +113,13 @@
   - `receive_src.py`：源路由包接收
   - `send_tunnel.py`：Yequdesu隧道包发送
   - `receive_tunnel.py`：Yequdesu隧道包接收
-- **参考实现**：包含IPv6转发、P4Runtime隧道和源路由等示例
+  - `send_vxlan.py`：VXLAN包发送
+  - `receive_vxlan.py`：VXLAN包接收
+  - `h1toh2test-send.py`：h1到h2的自动化测试发送脚本
+  - `h1toh2test-rece.py`：h1到h2的自动化测试接收脚本
+  - `h2toh1test-send.py`：h2到h1的自动化测试发送脚本
+  - `h2toh1test-rece.py`：h2到h1的自动化测试接收脚本
+- **参考实现**：包含IPv6转发、P4Runtime隧道、VXLAN和源路由等示例
 
 ## 使用方法
 
@@ -81,16 +136,30 @@ python3 controller.py
 python3 send.py --ip 10.0.2.2 --message "IPv4 Hello"
 
 # IPv6转发
-python3 send.py --ip 2001:db8:1::2 --message "IPv6 Hello"
+python3 send_ipv6.py 2001:db8:1::2 "IPv6 Hello"
 
-# Yequdesu隧道
-python3 send.py --ip tunnel:10.0.2.2 --message "Tunnel Hello"
+# Yequdesu隧道 (使用专用IP地址避免冲突)
+python3 send_tunnel.py 10.0.2.4 "Tunnel Hello"
+
+# VXLAN虚拟网络
+python3 send_vxlan.py 10.0.2.2 "VXLAN Hello"
 
 # 源路由
 python3 send_src.py 10.0.2.2 "Source Route Hello"
 ```
 
-### 3. 接收测试
+### 3. 自动化双向测试
+```bash
+# h1到h2测试 (在h1和h2的xterm中分别运行)
+python3 test/h1toh2test-send.py  # 在h1运行
+python3 test/h1toh2test-rece.py   # 在h2运行
+
+# h2到h1测试 (在h1和h2的xterm中分别运行)
+python3 test/h2toh1test-send.py  # 在h2运行
+python3 test/h2toh1test-rece.py   # 在h1运行
+```
+
+### 4. 接收测试
 ```bash
 # 接收所有类型包
 python3 receive.py --all
@@ -98,6 +167,7 @@ python3 receive.py --all
 # 只接收特定类型
 python3 receive.py --ipv4
 python3 receive.py --ipv6
-python3 receive.py --tunnel
-python3 receive.py --src-route
+python3 receive_tunnel.py    # Yequdesu隧道
+python3 receive_vxlan.py     # VXLAN
+python3 receive_src.py       # 源路由
 ```

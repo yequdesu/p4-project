@@ -36,21 +36,36 @@ class IPv4Controller:
             ('s12', "10.0.2.2"): ("ff:ff:ff:ff:ff:ff", 2),  # s12 to h2 via s2 (port 2)
             ('s2', "10.0.2.2"): ("08:00:00:00:02:22", 1),   # s2 to h2 directly (port 1)
 
+            # Yequdesu tunnel destination routes (within subnets)
+            ('s1', "10.0.2.4"): ("ff:ff:ff:ff:ff:ff", 2),   # s1 to h2 tunnel endpoint via s11 (port 2)
+            ('s11', "10.0.2.4"): ("ff:ff:ff:ff:ff:ff", 2),  # s11 to h2 tunnel endpoint via s12 (port 2)
+            ('s12', "10.0.2.4"): ("ff:ff:ff:ff:ff:ff", 2),  # s12 to h2 tunnel endpoint via s2 (port 2)
+            ('s2', "10.0.2.4"): ("08:00:00:00:02:22", 1),   # s2 to h2 tunnel endpoint directly (port 1)
+
             # Return path: h2-s2-s12-s11-s1-h1
             ('s2', "10.0.1.1"): ("ff:ff:ff:ff:ff:ff", 2),   # s2 to h1 via s12 (port 2)
             ('s12', "10.0.1.1"): ("ff:ff:ff:ff:ff:ff", 1),  # s12 to h1 via s11 (port 1)
             ('s11', "10.0.1.1"): ("ff:ff:ff:ff:ff:ff", 1),  # s11 to h1 via s1 (port 1)
             ('s1', "10.0.1.1"): ("08:00:00:00:01:11", 1),   # s1 to h1 directly (port 1)
+
+            # Yequdesu tunnel return destination routes (within subnets)
+            ('s2', "10.0.1.3"): ("ff:ff:ff:ff:ff:ff", 2),   # s2 to h1 tunnel endpoint via s12 (port 2)
+            ('s12', "10.0.1.3"): ("ff:ff:ff:ff:ff:ff", 1),  # s12 to h1 tunnel endpoint via s11 (port 1)
+            ('s11', "10.0.1.3"): ("ff:ff:ff:ff:ff:ff", 1),  # s11 to h1 tunnel endpoint via s1 (port 1)
+            ('s1', "10.0.1.3"): ("08:00:00:00:01:11", 1),   # s1 to h1 tunnel endpoint directly (port 1)
         }
 
         # Yequdesu tunnel routes: (switch, dst_ip): tunnel_id
+        # Use IP addresses within the destination subnets to ensure reachability
         self.yequdesu_routes = {
-            ('s1', "10.0.2.2"): 300,  # s1 to h2 via yequdesu tunnel
+            ('s1', "10.0.2.4"): 300,  # s1 to h2 via yequdesu tunnel (10.0.2.4 is in h2's subnet 10.0.2.0/24)
+            ('s2', "10.0.1.3"): 301,  # s2 to h1 via yequdesu tunnel (10.0.1.3 is in h1's subnet 10.0.1.0/24)
         }
 
         # Yequdesu tunnel forwarding: tunnel_id: (src_switch, dst_switch, output_port, dst_mac)
         self.yequdesu_mappings = {
-            300: ('s1', 's2', 4, "08:00:00:00:02:22"),  # New path: s1 -> s31 -> s32 -> s2 -> h2
+            300: ('s1', 's2', 4, "08:00:00:00:02:22"),  # Forward path: s1 -> s31 -> s32 -> s2 -> h2
+            301: ('s2', 's1', 4, "08:00:00:00:01:11"),  # Reverse path: s2 -> s32 -> s31 -> s1 -> h1
         }
 
         # Direct IPv6 routes: (switch, dst_ipv6): (dst_mac, port)
@@ -74,6 +89,18 @@ class IPv4Controller:
             ('s2', '10.0.2.20', '08:00:00:00:02:00'),   # s2's gateway for 10.0.2.0/24
         ]
 
+        # VXLAN routes: (switch, inner_dst_ip): (vni, dst_mac, port)
+        self.vxlan_routes = {
+            ('s1', "10.0.2.2"): (100, "ff:ff:ff:ff:ff:ff", 5),  # s1 to h2 via VXLAN tunnel (port 5 -> s41) - forward
+            ('s2', "10.0.1.1"): (101, "ff:ff:ff:ff:ff:ff", 5),  # s2 to h1 via VXLAN tunnel (port 5 -> s42) - reverse
+        }
+
+        # VXLAN decap rules: vni: (switch, port)
+        self.vxlan_decap_rules = {
+            100: ('s2', 5),  # s2 decap VXLAN packets from port 5 (s42) - forward
+            101: ('s1', 5),  # s1 decap VXLAN packets from port 5 (s41) - reverse
+        }
+
     def initialize_switches(self):
         """Initialize switch connections"""
         switch_configs = [
@@ -85,6 +112,8 @@ class IPv4Controller:
             ('s22', '127.0.0.1:50056', 5),
             ('s31', '127.0.0.1:50057', 6),
             ('s32', '127.0.0.1:50058', 7),
+            ('s41', '127.0.0.1:50059', 8),
+            ('s42', '127.0.0.1:50060', 9),
         ]
 
         for name, address, device_id in switch_configs:
@@ -106,6 +135,7 @@ class IPv4Controller:
         self._deploy_ipv4_rules()
         self._deploy_ipv6_rules()
         self._deploy_yequdesu_rules()
+        self._deploy_vxlan_rules()
         self._deploy_arp_rules()
         print("All forwarding rules deployed")
 
@@ -132,8 +162,23 @@ class IPv4Controller:
 
     def _deploy_yequdesu_rules(self):
         """Deploy Yequdesu tunnel rules"""
-        # Deploy ingress rules
+        # Deploy ingress rules - remove conflicting IPv4 route first
         for (sw_name, dst_ip), tunnel_id in self.yequdesu_routes.items():
+            # First, try to remove any existing IPv4 route for this destination
+            existing_entry = self.p4info_helper.buildTableEntry(
+                table_name="MyIngress.ipv4_lpm",
+                match_fields={"hdr.ipv4.dstAddr": (dst_ip, 32)},
+                action_name="MyIngress.ipv4_forward",  # Try to match existing action
+                action_params={"dstAddr": "00:00:00:00:00:00", "port": 0}  # Dummy params
+            )
+            try:
+                self.switches[sw_name].DeleteTableEntry(existing_entry)
+                print(f"Removed existing IPv4 route for {sw_name} -> {dst_ip}")
+            except grpc.RpcError:
+                # Entry might not exist, continue
+                pass
+
+            # Now add the Yequdesu ingress rule
             table_entry = self.p4info_helper.buildTableEntry(
                 table_name="MyIngress.ipv4_lpm",
                 match_fields={"hdr.ipv4.dstAddr": (dst_ip, 32)},
@@ -186,7 +231,7 @@ class IPv4Controller:
         except grpc.RpcError as e:
             print(f"Failed to add Yequdesu tunnel forward s32 -> s2: {e}")
 
-        # s2 egress to h2
+        # s2 egress to h2 (forward path)
         s2_egress = self.p4info_helper.buildTableEntry(
             table_name="MyIngress.yequdesu_exact",
             match_fields={"hdr.yequdesu.dst_id": 300},
@@ -201,6 +246,62 @@ class IPv4Controller:
             print("Added Yequdesu tunnel egress: s2 tunnel 300 -> h2 port 1")
         except grpc.RpcError as e:
             print(f"Failed to add Yequdesu tunnel egress s2 -> h2: {e}")
+
+        # Reverse path: s2 -> s32 -> s31 -> s1 -> h1
+        # s2 forwards to s32 (reverse)
+        s2_reverse_forward = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 301},
+            action_name="MyIngress.yequdesu_forward",
+            action_params={"port": 4}  # s2 port 4 -> s32
+        )
+        try:
+            self.switches['s2'].WriteTableEntry(s2_reverse_forward)
+            print("Added Yequdesu tunnel forward: s2 tunnel 301 -> port 4 (s32)")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel forward s2 -> s32: {e}")
+
+        # s32 forwards to s31 (reverse)
+        s32_reverse_forward = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 301},
+            action_name="MyIngress.yequdesu_forward",
+            action_params={"port": 1}  # s32 port 1 -> s31
+        )
+        try:
+            self.switches['s32'].WriteTableEntry(s32_reverse_forward)
+            print("Added Yequdesu tunnel forward: s32 tunnel 301 -> port 1 (s31)")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel forward s32 -> s31: {e}")
+
+        # s31 forwards to s1 (reverse)
+        s31_reverse_forward = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 301},
+            action_name="MyIngress.yequdesu_forward",
+            action_params={"port": 1}  # s31 port 1 -> s1
+        )
+        try:
+            self.switches['s31'].WriteTableEntry(s31_reverse_forward)
+            print("Added Yequdesu tunnel forward: s31 tunnel 301 -> port 1 (s1)")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel forward s31 -> s1: {e}")
+
+        # s1 egress to h1 (reverse)
+        s1_reverse_egress = self.p4info_helper.buildTableEntry(
+            table_name="MyIngress.yequdesu_exact",
+            match_fields={"hdr.yequdesu.dst_id": 301},
+            action_name="MyIngress.yequdesu_egress",
+            action_params={
+                "dstAddr": "08:00:00:00:01:11",  # h1 MAC
+                "port": 1  # s1 port 1 -> h1
+            }
+        )
+        try:
+            self.switches['s1'].WriteTableEntry(s1_reverse_egress)
+            print("Added Yequdesu tunnel egress: s1 tunnel 301 -> h1 port 1")
+        except grpc.RpcError as e:
+            print(f"Failed to add Yequdesu tunnel egress s1 -> h1: {e}")
 
     def _deploy_ipv6_rules(self):
         """Deploy IPv6 routing rules with direct forwarding"""
@@ -222,6 +323,36 @@ class IPv4Controller:
                     print(f"Modified IPv6 route: {sw_name} -> {dst_ipv6} via port {port}")
                 except grpc.RpcError as e2:
                     print(f"Failed to modify IPv6 route {sw_name} -> {dst_ipv6}: {e2}")
+
+    def _deploy_vxlan_rules(self):
+        """Deploy VXLAN encapsulation and decapsulation rules"""
+        # Deploy VXLAN encapsulation rules
+        for (sw_name, inner_dst_ip), (vni, dst_mac, port) in self.vxlan_routes.items():
+            table_entry = self.p4info_helper.buildTableEntry(
+                table_name="MyIngress.vxlan_lpm",
+                match_fields={"hdr.inner_ipv4.dstAddr": (inner_dst_ip, 32)},
+                action_name="MyIngress.vxlan_encap",
+                action_params={"vni": vni, "dstAddr": dst_mac, "port": port}
+            )
+            try:
+                self.switches[sw_name].WriteTableEntry(table_entry)
+                print(f"Added VXLAN encap rule: {sw_name} -> {inner_dst_ip} via VNI {vni} port {port}")
+            except grpc.RpcError as e:
+                print(f"Failed to add VXLAN encap rule {sw_name} -> {inner_dst_ip}: {e}")
+
+        # Deploy VXLAN decapsulation rules
+        for vni, (sw_name, port) in self.vxlan_decap_rules.items():
+            table_entry = self.p4info_helper.buildTableEntry(
+                table_name="MyIngress.vxlan_decap_exact",
+                match_fields={"hdr.vxlan.vni": vni},
+                action_name="MyIngress.vxlan_decap",
+                action_params={}
+            )
+            try:
+                self.switches[sw_name].WriteTableEntry(table_entry)
+                print(f"Added VXLAN decap rule: {sw_name} decap VNI {vni}")
+            except grpc.RpcError as e:
+                print(f"Failed to add VXLAN decap rule {sw_name} VNI {vni}: {e}")
 
     def _deploy_tunnel_rules(self):
         """No tunnel rules needed for direct routing"""

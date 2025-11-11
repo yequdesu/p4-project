@@ -10,6 +10,8 @@ const bit<16> TYPE_ARP = 0x0806;
 const bit<16> TYPE_SRCROUTING = 0x0900;
 const bit<32> MAX_TUNNEL_ID = 1 << 16;
 #define MAX_HOPS 9
+const bit<8> TYPE_UDP = 17;
+const bit<16> VXLAN_PORT = 4789;
 
 const bit<16> ARP_HTYPE_ETHERNET = 0x0001;
 const bit<16> ARP_PTYPE_IPV4 = 0x0800;
@@ -25,6 +27,7 @@ const bit<16> ARP_OPER_REPLY = 2;
 typedef bit<9>  egressSpec_t;
 typedef bit<48> macAddr_t;
 typedef bit<32> ip4Addr_t;
+typedef bit<16> udpPort_t;
 
 header ethernet_t {
     macAddr_t dstAddr;
@@ -81,6 +84,20 @@ header ipv6_t {
     bit<128>  dstAddr;
 }
 
+header udp_t {
+    udpPort_t srcPort;
+    udpPort_t dstPort;
+    bit<16>   length;
+    bit<16>   checksum;
+}
+
+header vxlan_t {
+    bit<8>  flags;
+    bit<24> reserved1;
+    bit<24> vni;
+    bit<8>  reserved2;
+}
+
 struct metadata {
     ip4Addr_t dst_ipv4; // dst ip for ARP
 }
@@ -92,6 +109,10 @@ struct headers {
     arp_t                   arp;
     ipv4_t                  ipv4;
     ipv6_t                  ipv6;
+    udp_t                   udp;
+    vxlan_t                 vxlan;
+    ethernet_t              inner_ethernet;
+    ipv4_t                  inner_ipv4;
 }
 
 /*************************************************************************
@@ -119,6 +140,32 @@ parser MyParser(packet_in packet,
         }
     }
 
+    state parse_udp {
+        packet.extract(hdr.udp);
+        transition select(hdr.udp.dstPort) {
+            VXLAN_PORT: parse_vxlan;
+            default: accept;
+        }
+    }
+
+    state parse_vxlan {
+        packet.extract(hdr.vxlan);
+        transition parse_inner_ethernet;
+    }
+
+    state parse_inner_ethernet {
+        packet.extract(hdr.inner_ethernet);
+        transition select(hdr.inner_ethernet.etherType) {
+            TYPE_IPV4: parse_inner_ipv4;
+            default: accept;
+        }
+    }
+
+    state parse_inner_ipv4 {
+        packet.extract(hdr.inner_ipv4);
+        transition accept;
+    }
+
     state parse_yequdesu {
         packet.extract(hdr.yequdesu);
         transition select(hdr.yequdesu.proto_id) {
@@ -135,7 +182,10 @@ parser MyParser(packet_in packet,
 
     state parse_ipv4 {
         packet.extract(hdr.ipv4);
-        transition accept;
+        transition select(hdr.ipv4.protocol) {
+            TYPE_UDP: parse_udp;
+            default: accept;
+        }
     }
 
     state parse_ipv6 {
@@ -368,6 +418,48 @@ control MyIngress(inout headers hdr,
         standard_metadata.egress_spec = standard_metadata.ingress_port; // return to the port it comes from
     }
 
+    action vxlan_encap(bit<24> vni, macAddr_t dstAddr, egressSpec_t port) {
+        standard_metadata.egress_spec = port;
+        hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
+        hdr.ethernet.dstAddr = dstAddr;
+        hdr.ethernet.etherType = TYPE_IPV4;
+
+        hdr.ipv4.setValid();
+        hdr.ipv4.version = 4;
+        hdr.ipv4.ihl = 5;
+        hdr.ipv4.diffserv = 0;
+        hdr.ipv4.totalLen = hdr.ipv4.totalLen + 50; // 20 IPv4 + 8 UDP + 8 VXLAN + 14 Ethernet
+        hdr.ipv4.identification = 0;
+        hdr.ipv4.flags = 0;
+        hdr.ipv4.fragOffset = 0;
+        hdr.ipv4.ttl = 64;
+        hdr.ipv4.protocol = TYPE_UDP;
+        hdr.ipv4.srcAddr = 0x0A00010A; // 10.0.1.10
+        hdr.ipv4.dstAddr = 0x0A00020A; // 10.0.2.10
+
+        hdr.udp.setValid();
+        hdr.udp.srcPort = 4789;
+        hdr.udp.dstPort = 4789;
+        hdr.udp.length = hdr.udp.length + 38; // 8 VXLAN + 14 Ethernet + 16 IPv4
+        hdr.udp.checksum = 0;
+
+        hdr.vxlan.setValid();
+        hdr.vxlan.flags = 0x08;
+        hdr.vxlan.reserved1 = 0;
+        hdr.vxlan.vni = vni;
+        hdr.vxlan.reserved2 = 0;
+    }
+
+    action vxlan_decap() {
+        hdr.vxlan.setInvalid();
+        hdr.udp.setInvalid();
+        hdr.ipv4.setInvalid();
+        hdr.ethernet = hdr.inner_ethernet;
+        hdr.ipv4 = hdr.inner_ipv4;
+        hdr.inner_ethernet.setInvalid();
+        hdr.inner_ipv4.setInvalid();
+    }
+
     table arp_match {
         key = {
             hdr.arp.oper: exact;
@@ -378,6 +470,31 @@ control MyIngress(inout headers hdr,
             drop;
         }
         const default_action = drop();
+    }
+
+    table vxlan_lpm {
+        key = {
+            hdr.inner_ipv4.dstAddr: lpm;
+        }
+        actions = {
+            vxlan_encap;
+            drop;
+            NoAction;
+        }
+        size = 1024;
+        default_action = NoAction();
+    }
+
+    table vxlan_decap_exact {
+        key = {
+            hdr.vxlan.vni: exact;
+        }
+        actions = {
+            vxlan_decap;
+            drop;
+        }
+        size = 1024;
+        default_action = drop();
     }
 
     apply {
@@ -403,11 +520,20 @@ control MyIngress(inout headers hdr,
                 yequdesu_exact.apply();
             }
         }
+        else if (hdr.vxlan.isValid()) {
+            // VXLAN modality - virtual network overlay
+            vxlan_decap_exact.apply();
+        }
         else {
             // IPv4 and IPv6 modalities - conventional routing
             if (hdr.ipv4.isValid()) {
                 // Process IPv4 packets
-                ipv4_lpm.apply();
+                if (hdr.udp.isValid() && hdr.udp.dstPort == VXLAN_PORT) {
+                    // VXLAN encapsulation
+                    vxlan_lpm.apply();
+                } else {
+                    ipv4_lpm.apply();
+                }
             }
             else if (hdr.ipv6.isValid()) {
                 // Process IPv6 packets
@@ -464,6 +590,10 @@ control MyDeparser(packet_out packet, in headers hdr) {
         packet.emit(hdr.arp);
         packet.emit(hdr.ipv4);
         packet.emit(hdr.ipv6);
+        packet.emit(hdr.udp);
+        packet.emit(hdr.vxlan);
+        packet.emit(hdr.inner_ethernet);
+        packet.emit(hdr.inner_ipv4);
     }
 }
 

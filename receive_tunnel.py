@@ -3,15 +3,17 @@
 Yequdesu tunnel packet receiver for testing
 """
 
-import sys
-import struct
+import argparse
 import os
+import sys
 
-from scapy.all import sniff, sendp, hexdump, get_if_list, get_if_hwaddr
-from scapy.all import Packet, IPOption, ShortField, bind_layers
-from scapy.all import IPv6, TCP, UDP, Raw, Ether, IP
+from scapy.all import sniff, get_if_list
+from scapy.all import Packet, ShortField, bind_layers
+from scapy.all import Ether, IP, TCP
+
 
 def get_if():
+    """Get the eth0 interface"""
     ifs = get_if_list()
     iface = None
     for i in get_if_list():
@@ -20,8 +22,9 @@ def get_if():
             break
     if not iface:
         print("Cannot find eth0 interface")
-        exit(1)
+        sys.exit(1)
     return iface
+
 
 class Yequdesu(Packet):
     """Yequdesu tunnel header"""
@@ -31,6 +34,7 @@ class Yequdesu(Packet):
         ShortField("dst_id", 300)       # Tunnel ID
     ]
 
+
 def handle_pkt(pkt):
     """Handle received packet"""
     if Yequdesu in pkt or (TCP in pkt and pkt[TCP].dport == 1234):
@@ -38,17 +42,27 @@ def handle_pkt(pkt):
         pkt.show2()
         sys.stdout.flush()
 
+
 def main():
+    parser = argparse.ArgumentParser(description='Receive Yequdesu tunnel packets for testing')
+    parser.add_argument('--interface', help='Network interface to sniff on')
+    args = parser.parse_args()
+
     # Bind layers for Yequdesu protocol
     bind_layers(Ether, Yequdesu, type=0x1313)
     bind_layers(Yequdesu, IP)
 
-    ifaces = [i for i in os.listdir('/sys/class/net/') if 'eth' in i]
-    iface = ifaces[0]
+    if args.interface:
+        iface = args.interface
+    else:
+        ifaces = [i for i in os.listdir('/sys/class/net/') if 'eth' in i]
+        iface = ifaces[0]
+
     print("Sniffing Yequdesu tunnel packets on %s" % iface)
     sys.stdout.flush()
     sniff(iface=iface,
           prn=lambda x: handle_pkt(x))
+
 
 if __name__ == '__main__':
     main()

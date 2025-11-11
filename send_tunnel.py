@@ -25,17 +25,17 @@ def get_if():
     return iface
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('ip_addr', type=str, help="The destination IP address to use")
-    parser.add_argument('message', type=str, help="The message to include in packet")
-    parser.add_argument('--dst_id', type=int, default=300, help='The yequdesu dst_id to use')
+    parser = argparse.ArgumentParser(description='Send Yequdesu tunnel packet for testing')
+    parser.add_argument('--ip', required=True, help='Destination IP address')
+    parser.add_argument('--message', default='Hello Yequdesu', help='Message to send')
+    parser.add_argument('--dst_id', type=int, default=300, help='Yequdesu destination ID')
     args = parser.parse_args()
 
-    addr = socket.gethostbyname(args.ip_addr)
+    addr = socket.gethostbyname(args.ip)
     dst_id = args.dst_id
     iface = get_if()
 
-    print("Sending Yequdesu tunnel packet on interface {} to dst_id {}".format(iface, str(dst_id)))
+    print("Sending Yequdesu tunnel packet on interface %s to dst_id %s" % (iface, str(dst_id)))
 
     # Create Yequdesu header (custom header)
     class Yequdesu(Packet):
@@ -51,7 +51,7 @@ def main():
 
     pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff', type=0x1313)
     pkt = pkt / Yequdesu(proto_id=0x800, dst_id=dst_id)
-    pkt = pkt / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152,65535)) / args.message
+    pkt = pkt / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152, 65535)) / args.message
     pkt.show2()
     sendp(pkt, iface=iface, verbose=False)
     print("Yequdesu tunnel packet sent successfully")

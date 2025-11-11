@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-IPv4 packet sender for testing
+VXLAN packet sender for testing
 """
 
 import argparse
@@ -26,20 +26,24 @@ def get_if():
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Send IPv4 packet for testing')
+    parser = argparse.ArgumentParser(description='Send VXLAN packet for testing')
     parser.add_argument('--ip', required=True, help='Destination IP address')
-    parser.add_argument('--message', default='Hello IPv4', help='Message to send')
+    parser.add_argument('--message', default='Hello VXLAN', help='Message to send')
     args = parser.parse_args()
 
     addr = socket.gethostbyname(args.ip)
     iface = get_if()
 
-    print("Sending IPv4 packet on interface %s to %s" % (iface, str(addr)))
+    print("Sending packet to %s via interface %s" % (str(addr), iface))
+    print("P4 switch will handle VXLAN encapsulation automatically")
+
+    # Send regular IPv4 packet - P4 switch will do VXLAN encapsulation
     pkt = Ether(src=get_if_hwaddr(iface), dst='ff:ff:ff:ff:ff:ff')
     pkt = pkt / IP(dst=addr) / TCP(dport=1234, sport=random.randint(49152, 65535)) / args.message
+
     pkt.show2()
     sendp(pkt, iface=iface, verbose=False)
-    print("IPv4 packet sent successfully")
+    print("VXLAN packet sent successfully")
 
 
 if __name__ == '__main__':
