@@ -288,6 +288,27 @@ control MyIngress(inout headers hdr,
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
+    action set_mcast_grp(bit<16> mcast_grp) {
+        standard_metadata.mcast_grp = mcast_grp;
+    }
+
+    action clone_to_cpu(bit<32> session_id) {
+        clone3(CloneType.I2E, session_id, {standard_metadata.ingress_port});
+        drop();
+    }
+
+    table modality_schedule {
+        key = { hdr.ipv4.dstAddr: exact; }
+        actions = { set_mcast_grp; NoAction; }
+        default_action = NoAction();
+    }
+
+    table adjudication {
+        key = { hdr.ipv4.dstAddr: exact; }
+        actions = { clone_to_cpu; NoAction; }
+        default_action = NoAction();
+    }
+
     table ipv4_lpm {
         key = {
             hdr.ipv4.dstAddr: lpm;
@@ -556,20 +577,21 @@ control MyIngress(inout headers hdr,
             // VXLAN modality - virtual network overlay
             vxlan_decap_exact.apply();
         }
-        else {
-            // IPv4 and IPv6 modalities - conventional routing
-            if (hdr.ipv4.isValid()) {
-                // Process IPv4 packets
-                if (hdr.udp.isValid() && hdr.udp.dstPort == VXLAN_PORT) {
-                    // VXLAN encapsulation
-                    vxlan_lpm.apply();
-                } else {
+        else if (hdr.ipv6.isValid()) {
+            // Process IPv6 packets
+            ipv6_lpm.apply();
+        }
+        else if (hdr.ipv4.isValid()) {
+            // Process IPv4 packets
+            if (hdr.udp.isValid() && hdr.udp.dstPort == VXLAN_PORT) {
+                // VXLAN encapsulation
+                vxlan_lpm.apply();
+            } else {
+                modality_schedule.apply();
+                if (standard_metadata.mcast_grp == 0) {
+                    adjudication.apply();
                     ipv4_lpm.apply();
                 }
-            }
-            else if (hdr.ipv6.isValid()) {
-                // Process IPv6 packets
-                ipv6_lpm.apply();
             }
         }
     }
@@ -582,7 +604,82 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    apply {  }
+
+    action encap_ipv6_egress(bit<128> src, bit<128> dst) {
+        hdr.ethernet.etherType = TYPE_IPV6;
+        hdr.ipv6.setValid();
+        hdr.ipv6.version = 6;
+        hdr.ipv6.trafficClass = 0;
+        hdr.ipv6.flowLabel = 0;
+        hdr.ipv6.payLoadLen = hdr.ipv4.totalLen;
+        hdr.ipv6.nextHdr = 4; // IPv4
+        hdr.ipv6.hopLimit = 64;
+        hdr.ipv6.srcAddr = src;
+        hdr.ipv6.dstAddr = dst;
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+    }
+
+    action encap_yequdesu_egress(bit<16> dst_id) {
+        hdr.yequdesu.setValid();
+        hdr.yequdesu.dst_id = dst_id;
+        hdr.yequdesu.proto_id = 0x800; // IPv4
+        hdr.ethernet.etherType = TYPE_YEQUDESU;
+    }
+
+    action encap_vxlan_egress(bit<24> vni, ip4Addr_t src, ip4Addr_t dst) {
+        hdr.ethernet.etherType = TYPE_IPV4;
+
+        hdr.ipv4.setValid();
+        hdr.ipv4.version = 4;
+        hdr.ipv4.ihl = 5;
+        hdr.ipv4.diffserv = 0;
+        hdr.ipv4.totalLen = hdr.ipv4.totalLen + 50;
+        hdr.ipv4.identification = 0;
+        hdr.ipv4.flags = 0;
+        hdr.ipv4.fragOffset = 0;
+        hdr.ipv4.ttl = 64;
+        hdr.ipv4.protocol = TYPE_UDP;
+        hdr.ipv4.srcAddr = src;
+        hdr.ipv4.dstAddr = dst;
+
+        hdr.udp.setValid();
+        hdr.udp.srcPort = 4789;
+        hdr.udp.dstPort = 4789;
+        hdr.udp.length = hdr.udp.length + 38;
+        hdr.udp.checksum = 0;
+
+        hdr.vxlan.setValid();
+        hdr.vxlan.flags = 0x08;
+        hdr.vxlan.reserved1 = 0;
+        hdr.vxlan.vni = vni;
+        hdr.vxlan.reserved2 = 0;
+    }
+
+    table egress_encap_ipv6 {
+        key = { standard_metadata.egress_port: exact; }
+        actions = { encap_ipv6_egress; NoAction; }
+        default_action = NoAction();
+    }
+
+    table egress_encap_yequdesu {
+        key = { standard_metadata.egress_port: exact; }
+        actions = { encap_yequdesu_egress; NoAction; }
+        default_action = NoAction();
+    }
+
+    table egress_encap_vxlan {
+        key = { standard_metadata.egress_port: exact; }
+        actions = { encap_vxlan_egress; NoAction; }
+        default_action = NoAction();
+    }
+
+    apply {
+        if (standard_metadata.instance_type == 1) {
+             egress_encap_ipv6.apply();
+             egress_encap_yequdesu.apply();
+             egress_encap_vxlan.apply();
+        }
+    }
 }
 
 /*************************************************************************
