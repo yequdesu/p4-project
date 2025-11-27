@@ -1,10 +1,10 @@
 
-[2025-11-27 05:36:48.964] /p4.v1.P4Runtime/SetForwardingPipelineConfig
+[2025-11-27 07:45:30.369] /p4.v1.P4Runtime/SetForwardingPipelineConfig
 ---
-Message too long (145511 bytes)! Skipping log...
+Message too long (151186 bytes)! Skipping log...
 ---
 
-[2025-11-27 05:36:49.097] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.508] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -40,7 +40,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.101] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.513] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -76,7 +76,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.102] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.514] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -112,7 +112,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.104] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.517] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -148,7 +148,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.109] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.525] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -184,7 +184,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.109] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.526] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -220,7 +220,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.116] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.538] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -256,7 +256,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.117] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.539] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -292,7 +292,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.121] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.544] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -328,7 +328,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.121] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.545] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -360,7 +360,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.126] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.549] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -395,7 +395,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.128] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.549] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -426,7 +426,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.131] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.553] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -466,7 +466,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.131] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.554] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -493,7 +493,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.134] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.556] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -531,7 +531,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.135] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.563] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -545,19 +545,11 @@ updates {
         multicast_group_id: 2
         replicas {
           egress_port: 2
-          instance: 3
+          instance: 1
         }
         replicas {
           egress_port: 3
-          instance: 3
-        }
-        replicas {
-          egress_port: 4
-          instance: 3
-        }
-        replicas {
-          egress_port: 5
-          instance: 3
+          instance: 1
         }
       }
     }
@@ -565,7 +557,137 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.136] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.564] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 3
+        replicas {
+          egress_port: 2
+          instance: 1
+        }
+        replicas {
+          egress_port: 4
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.566] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 4
+        replicas {
+          egress_port: 2
+          instance: 1
+        }
+        replicas {
+          egress_port: 5
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.567] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 5
+        replicas {
+          egress_port: 3
+          instance: 1
+        }
+        replicas {
+          egress_port: 4
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.569] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 6
+        replicas {
+          egress_port: 3
+          instance: 1
+        }
+        replicas {
+          egress_port: 5
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.569] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 7
+        replicas {
+          egress_port: 4
+          instance: 1
+        }
+        replicas {
+          egress_port: 5
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.571] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -584,11 +706,7 @@ updates {
       }
       action {
         action {
-          action_id: 24840994
-          params {
-            param_id: 1
-            value: "\000\002"
-          }
+          action_id: 21500848
         }
       }
     }
@@ -596,7 +714,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.138] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.574] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -631,7 +749,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.139] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.574] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -662,7 +780,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.139] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.576] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {
@@ -701,7 +819,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.140] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.578] /p4.v1.P4Runtime/Write
 ---
 device_id: 1
 election_id {

@@ -101,6 +101,7 @@ header vxlan_t {
 struct metadata {
     ip4Addr_t dst_ipv4; // dst ip for ARP
     bit<1> do_multimodal;
+    bit<3> selected_modalities;
 }
 
 struct headers {
@@ -292,8 +293,12 @@ control MyIngress(inout headers hdr,
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
-    action set_mcast_grp(bit<16> mcast_grp) {
-        standard_metadata.mcast_grp = mcast_grp;
+    action set_random_multimodal() {
+        bit<32> hash_val;
+        hash(hash_val, HashAlgorithm.crc32, 32w0, {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, hdr.ipv4.identification, standard_metadata.ingress_global_timestamp}, 32w0xFFFFFFFF);
+        bit<3> choice = hash_val[15:13];
+        // choice 0-7 correspond to groups 2-9
+        standard_metadata.mcast_grp = (bit<16>)(choice + 2);
         meta.do_multimodal = 1;
         hdr.ipv4.ttl = 100;
     }
@@ -305,7 +310,7 @@ control MyIngress(inout headers hdr,
 
     table modality_schedule {
         key = { hdr.ipv4.dstAddr: exact; }
-        actions = { set_mcast_grp; NoAction; }
+        actions = { set_random_multimodal; NoAction; }
         default_action = NoAction();
     }
 
@@ -681,11 +686,9 @@ control MyEgress(inout headers hdr,
     }
 
     apply {
-        if (standard_metadata.mcast_grp != 0) {
-            egress_encap_ipv6.apply();
-            egress_encap_yequdesu.apply();
-            egress_encap_vxlan.apply();
-        }
+        egress_encap_ipv6.apply();
+        egress_encap_yequdesu.apply();
+        egress_encap_vxlan.apply();
     }
 }
 

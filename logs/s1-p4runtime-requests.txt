@@ -1,10 +1,10 @@
 
-[2025-11-27 05:36:48.952] /p4.v1.P4Runtime/SetForwardingPipelineConfig
+[2025-11-27 07:45:30.354] /p4.v1.P4Runtime/SetForwardingPipelineConfig
 ---
-Message too long (145498 bytes)! Skipping log...
+Message too long (151173 bytes)! Skipping log...
 ---
 
-[2025-11-27 05:36:49.094] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.505] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -39,7 +39,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.099] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.509] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -74,7 +74,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.099] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.510] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -109,7 +109,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.103] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.516] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -144,7 +144,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.105] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.520] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -179,7 +179,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.106] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.520] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -214,7 +214,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.114] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.531] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -249,7 +249,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.114] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.533] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -284,7 +284,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.119] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.542] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -319,7 +319,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.119] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.543] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -354,7 +354,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.120] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.544] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -385,7 +385,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.123] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.546] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -415,7 +415,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.130] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.552] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -449,7 +449,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.130] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.553] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -488,7 +488,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.132] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.555] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -514,7 +514,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.133] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.556] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -551,7 +551,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.134] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.558] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -561,22 +561,14 @@ updates {
   entity {
     packet_replication_engine_entry {
       multicast_group_entry {
-        multicast_group_id: 1
+        multicast_group_id: 2
         replicas {
           egress_port: 2
-          instance: 3
+          instance: 1
         }
         replicas {
           egress_port: 3
-          instance: 3
-        }
-        replicas {
-          egress_port: 4
-          instance: 3
-        }
-        replicas {
-          egress_port: 5
-          instance: 3
+          instance: 1
         }
       }
     }
@@ -584,7 +576,132 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.135] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.558] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 3
+        replicas {
+          egress_port: 2
+          instance: 1
+        }
+        replicas {
+          egress_port: 4
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.560] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 4
+        replicas {
+          egress_port: 2
+          instance: 1
+        }
+        replicas {
+          egress_port: 5
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.560] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 5
+        replicas {
+          egress_port: 3
+          instance: 1
+        }
+        replicas {
+          egress_port: 4
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.561] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 6
+        replicas {
+          egress_port: 3
+          instance: 1
+        }
+        replicas {
+          egress_port: 5
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.562] /p4.v1.P4Runtime/Write
+---
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    packet_replication_engine_entry {
+      multicast_group_entry {
+        multicast_group_id: 7
+        replicas {
+          egress_port: 4
+          instance: 1
+        }
+        replicas {
+          egress_port: 5
+          instance: 1
+        }
+      }
+    }
+  }
+}
+---
+
+[2025-11-27 07:45:30.570] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -602,11 +719,7 @@ updates {
       }
       action {
         action {
-          action_id: 24840994
-          params {
-            param_id: 1
-            value: "\000\001"
-          }
+          action_id: 21500848
         }
       }
     }
@@ -614,7 +727,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.136] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.571] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -648,7 +761,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.137] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.572] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -678,7 +791,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.138] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.573] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1
@@ -716,7 +829,7 @@ updates {
 }
 ---
 
-[2025-11-27 05:36:49.140] /p4.v1.P4Runtime/Write
+[2025-11-27 07:45:30.580] /p4.v1.P4Runtime/Write
 ---
 election_id {
   low: 1

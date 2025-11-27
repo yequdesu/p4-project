@@ -17,7 +17,7 @@ tables {
     match_type: EXACT
   }
   action_refs {
-    id: 24840994
+    id: 21500848
   }
   action_refs {
     id: 21257015
@@ -437,14 +437,9 @@ actions {
 }
 actions {
   preamble {
-    id: 24840994
-    name: "MyIngress.set_mcast_grp"
-    alias: "set_mcast_grp"
-  }
-  params {
-    id: 1
-    name: "mcast_grp"
-    bitwidth: 16
+    id: 21500848
+    name: "MyIngress.set_random_multimodal"
+    alias: "set_random_multimodal"
   }
 }
 actions {

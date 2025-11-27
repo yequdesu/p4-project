@@ -10,7 +10,7 @@ import sys
 import threading
 import zlib
 from time import sleep
-from scapy.all import Ether, IP, UDP, TCP
+from scapy.all import Ether, IP, IPv6, UDP, TCP
 
 # Import P4Runtime libraries
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'utils/'))
@@ -429,41 +429,48 @@ class IPv4Controller:
     def deploy_level4_rules(self):
         """Deploy Level 4 Multimodal Scheduling and Adjudication rules"""
         print("Deploying Level 4 rules...")
-        
-        # 1. Create Multicast Groups
-        # Group 1: S1 -> h2 (Ports 2, 3, 4, 5)
-        # Group 2: S2 -> h1 (Ports 2, 3, 4, 5)
-        replicas = [
-            {'egress_port': 2, 'instance': 3}, # IPv4
-            {'egress_port': 3, 'instance': 3}, # IPv6
-            {'egress_port': 4, 'instance': 3}, # Tunnel
-            {'egress_port': 5, 'instance': 3}  # VXLAN
-        ]
-        
+
+        # 1. Create Multicast Groups for 2-modality combinations
+        # Group 2: IPv4 + IPv6 (ports 2,3)
+        # Group 3: IPv4 + Yequdesu (ports 2,4)
+        # Group 4: IPv4 + VXLAN (ports 2,5)
+        # Group 5: IPv6 + Yequdesu (ports 3,4)
+        # Group 6: IPv6 + VXLAN (ports 3,5)
+        # Group 7: Yequdesu + VXLAN (ports 4,5)
+
+        multicast_groups = {
+            2: [{'egress_port': 2, 'instance': 1}, {'egress_port': 3, 'instance': 1}],
+            3: [{'egress_port': 2, 'instance': 1}, {'egress_port': 4, 'instance': 1}],
+            4: [{'egress_port': 2, 'instance': 1}, {'egress_port': 5, 'instance': 1}],
+            5: [{'egress_port': 3, 'instance': 1}, {'egress_port': 4, 'instance': 1}],
+            6: [{'egress_port': 3, 'instance': 1}, {'egress_port': 5, 'instance': 1}],
+            7: [{'egress_port': 4, 'instance': 1}, {'egress_port': 5, 'instance': 1}]
+        }
+
         for sw_name in ['s1', 's2']:
             switch = self.switches[sw_name]
-            group_id = 1 if sw_name == 's1' else 2
-            entry = self.p4info_helper.buildMulticastGroupEntry(group_id, replicas)
-            switch.WritePREEntry(entry)
-            print(f"Installed Multicast Group {group_id} on {sw_name}")
+            for group_id, replicas in multicast_groups.items():
+                entry = self.p4info_helper.buildMulticastGroupEntry(group_id, replicas)
+                switch.WritePREEntry(entry)
+                print(f"Installed Multicast Group {group_id} on {sw_name}")
 
         # 2. Modality Schedule Table
-        # S1: dst 10.0.2.2 -> set_mcast_grp(1)
+        # S1: dst 10.0.2.2 -> set_random_multimodal()
         self.switches['s1'].WriteTableEntry(
             self.p4info_helper.buildTableEntry(
                 table_name="MyIngress.modality_schedule",
                 match_fields={"hdr.ipv4.dstAddr": ["10.0.2.2"]},
-                action_name="MyIngress.set_mcast_grp",
-                action_params={"mcast_grp": 1}
+                action_name="MyIngress.set_random_multimodal",
+                action_params={}
             )
         )
-        # S2: dst 10.0.1.1 -> set_mcast_grp(2)
+        # S2: dst 10.0.1.1 -> set_random_multimodal()
         self.switches['s2'].WriteTableEntry(
             self.p4info_helper.buildTableEntry(
                 table_name="MyIngress.modality_schedule",
                 match_fields={"hdr.ipv4.dstAddr": ["10.0.1.1"]},
-                action_name="MyIngress.set_mcast_grp",
-                action_params={"mcast_grp": 2}
+                action_name="MyIngress.set_random_multimodal",
+                action_params={}
             )
         )
 
@@ -574,54 +581,106 @@ class IPv4Controller:
     def packet_in_handler(self, sw_name):
         switch = self.switches[sw_name]
         print(f"Started PacketIn listener for {sw_name}")
-        
+
+        # Dictionary to store packets per flow: (src_ip, dst_ip) -> {ingress_port: payload}
+        flow_packets = {}
+
         while True:
             try:
                 msg = switch.PacketIn()
                 if msg.HasField("packet"):
                     packet = msg.packet
                     payload = packet.payload
-                    # Verify hash/integrity
+                    metadata = packet.metadata  # Access metadata
+
+                    # Extract ingress_port from metadata (ID 1 is standard_metadata.ingress_port)
+                    ingress_port = None
+                    for meta in metadata:
+                        if meta.id == 1:
+                            ingress_port = int.from_bytes(meta.value, 'big')
+                            break
+                    if ingress_port is None:
+                        print(f"[{sw_name}] No ingress_port in metadata, skipping")
+                        continue
+
+                    # Parse packet to get IP addresses
                     pkt = Ether(payload)
                     if IP in pkt:
                         src = pkt[IP].src
                         dst = pkt[IP].dst
-                        # Simple adjudication: Print and Forward
-                        # Calculate hash
-                        chksum = zlib.crc32(payload)
-                        print(f"[{sw_name}] Adjudication: Received packet {src}->{dst} Hash: {chksum:08x}")
-                        
-                        # Forward to host
-                        # If at S2 (h1->h2), dst is 10.0.2.2, output port 1
-                        # If at S1 (h2->h1), dst is 10.0.1.1, output port 1
-                        out_port = 1
-                        
-                        # Construct PacketOut
-                        # We need to send it out of port 1.
-                        # Metadata for PacketOut usually requires 'egress_port'.
-                        # In v1model, standard_metadata.egress_spec is used.
-                        # We need to find the ID for 'egress_port' metadata.
-                        # I'll assume it's 1 or look it up.
-                        # For now, I'll try sending without metadata or with standard ID.
-                        # The helper doesn't expose metadata ID lookup easily.
-                        # I'll try to send it.
-                        
-                        # switch.PacketOut(payload, ...)
-                        # I'll skip PacketOut for now to avoid crashing if I don't have metadata IDs.
-                        # The prompt asks to "output adjudication winning modality... to h2".
-                        # If I can't PacketOut, h2 won't get it.
-                        # I'll try to find the metadata ID.
-                        # Usually "egress_port" is 1.
-                        
-                        # Select winning modality based on hash
-                        modality = chksum % 4 + 2  # 2,3,4,5 for IPv4,IPv6,Yequdesu,VXLAN
-                        print(f"[{sw_name}] Winning modality: {modality}")
+                        flow_key = (src, dst)
 
-                        # Send PacketOut to h2 via winning modality port
-                        # egress_port metadata ID is typically 1 for standard_metadata.egress_spec
-                        metadata = [{'id': 1, 'value': modality.to_bytes(4, 'big')}]
-                        switch.PacketOut(payload, metadata)
-                        print(f"[{sw_name}] Sent PacketOut to port {modality}")
+                        # Calculate payload hash for integrity check
+                        chksum = zlib.crc32(payload)
+                        print(f"[{sw_name}] Received packet {src}->{dst} from port {ingress_port}, Hash: {chksum:08x}")
+
+                        # Store packet for this modality
+                        if flow_key not in flow_packets:
+                            flow_packets[flow_key] = {}
+                        flow_packets[flow_key][ingress_port] = payload
+
+                        # Check if we have all modalities (ports 2,3,4,5)
+                        modalities = [2, 3, 4, 5]
+                        if all(port in flow_packets[flow_key] for port in modalities):
+                            hashes = [zlib.crc32(flow_packets[flow_key][port]) for port in modalities]
+                            if len(set(hashes)) == 1:
+                                # All hashes match, integrity verified
+                                print(f"[{sw_name}] Integrity verified for flow {src}->{dst}, all hashes match: {chksum:08x}")
+
+                                # Select winning modality (e.g., first one, or based on some logic)
+                                winning_port = modalities[0]  # IPv4 as default winner
+                                print(f"[{sw_name}] Winning modality: port {winning_port}")
+
+                                # Extract payload from winning packet
+                                winning_payload = flow_packets[flow_key][winning_port]
+                                pkt = Ether(winning_payload)
+                                if IP in pkt:
+                                    src_ip = pkt[IP].src
+                                    dst_ip = pkt[IP].dst
+                                    # Extract IPv4 payload based on modality
+                                    if winning_port == 2:
+                                        ipv4_payload = pkt[IP].payload
+                                    elif winning_port == 3:
+                                        if IPv6 in pkt:
+                                            inner = pkt[IPv6].payload
+                                            if IP in inner:
+                                                ipv4_payload = inner[IP].payload
+                                            else:
+                                                ipv4_payload = inner.payload
+                                        else:
+                                            ipv4_payload = pkt[IP].payload  # fallback
+                                    elif winning_port == 4:
+                                        # Yequdesu: Ether(14) + yequdesu(4) + IP
+                                        ip_start = 18
+                                        ip_bytes = winning_payload[ip_start:]
+                                        ip_pkt = IP(ip_bytes)
+                                        ipv4_payload = ip_pkt.payload
+                                    elif winning_port == 5:
+                                        # VXLAN: Ether(14) + IP(20) + UDP(8) + VXLAN(8) + inner_ether(14) + IP
+                                        ip_start = 14 + 20 + 8 + 8 + 14
+                                        ip_bytes = winning_payload[ip_start:]
+                                        ip_pkt = IP(ip_bytes)
+                                        ipv4_payload = ip_pkt.payload
+
+                                    # Build new IPv4 packet
+                                    host_mac = "08:00:00:00:01:11" if sw_name == 's1' else "08:00:00:00:02:22"
+                                    new_pkt = Ether(src="ff:ff:ff:ff:ff:ff", dst=host_mac) / IP(src=src_ip, dst=dst_ip) / ipv4_payload
+
+                                    # Send PacketOut to host (port 1)
+                                    metadata_out = [{'id': 1, 'value': (1).to_bytes(4, 'big')}]
+                                    switch.PacketOut(bytes(new_pkt), metadata_out)
+                                    print(f"[{sw_name}] Sent adjudicated IPv4 packet to host via port 1")
+
+                                    # Clear stored packets for this flow
+                                    del flow_packets[flow_key]
+                                else:
+                                    print(f"[{sw_name}] No IP in winning packet, skipping")
+                                    del flow_packets[flow_key]
+                            else:
+                                # Hashes don't match, integrity violation
+                                print(f"[{sw_name}] Integrity violation for flow {src}->{dst}, hashes differ: {hashes}")
+                                # Optionally, drop or alert
+                                del flow_packets[flow_key]
             except Exception as e:
                 print(f"Error in PacketIn handler for {sw_name}: {e}")
                 sleep(1)

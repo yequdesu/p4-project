@@ -1,0 +1,8 @@
+# 忽略 logs 目录下所有内容
+logs/
+
+# 忽略 pcaps 目录下所有内容
+pcaps/
+
+# 忽略 build 目录下所有内容
+build/
