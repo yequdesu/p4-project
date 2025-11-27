@@ -100,6 +100,7 @@ header vxlan_t {
 
 struct metadata {
     ip4Addr_t dst_ipv4; // dst ip for ARP
+    bit<1> do_multimodal;
 }
 
 struct headers {
@@ -114,6 +115,9 @@ struct headers {
     ethernet_t              inner_ethernet;
     ipv4_t                  inner_ipv4;
 }
+
+
+
 
 /*************************************************************************
 *********************** P A R S E R  ***********************************
@@ -290,10 +294,12 @@ control MyIngress(inout headers hdr,
 
     action set_mcast_grp(bit<16> mcast_grp) {
         standard_metadata.mcast_grp = mcast_grp;
+        meta.do_multimodal = 1;
+        hdr.ipv4.ttl = 100;
     }
 
     action clone_to_cpu(bit<32> session_id) {
-        clone3(CloneType.I2E, session_id, {standard_metadata.ingress_port});
+        clone(CloneType.I2E, session_id);
         drop();
     }
 
@@ -588,7 +594,7 @@ control MyIngress(inout headers hdr,
                 vxlan_lpm.apply();
             } else {
                 modality_schedule.apply();
-                if (standard_metadata.mcast_grp == 0) {
+                if (meta.do_multimodal == 0) {
                     adjudication.apply();
                     ipv4_lpm.apply();
                 }
@@ -617,6 +623,7 @@ control MyEgress(inout headers hdr,
         hdr.ipv6.srcAddr = src;
         hdr.ipv6.dstAddr = dst;
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+        hdr.ethernet.etherType = 0x86dd;
     }
 
     action encap_yequdesu_egress(bit<16> dst_id) {
@@ -674,10 +681,10 @@ control MyEgress(inout headers hdr,
     }
 
     apply {
-        if (standard_metadata.instance_type == 1) {
-             egress_encap_ipv6.apply();
-             egress_encap_yequdesu.apply();
-             egress_encap_vxlan.apply();
+        if (standard_metadata.mcast_grp != 0) {
+            egress_encap_ipv6.apply();
+            egress_encap_yequdesu.apply();
+            egress_encap_vxlan.apply();
         }
     }
 }

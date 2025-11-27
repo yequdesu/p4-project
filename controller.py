@@ -434,10 +434,10 @@ class IPv4Controller:
         # Group 1: S1 -> h2 (Ports 2, 3, 4, 5)
         # Group 2: S2 -> h1 (Ports 2, 3, 4, 5)
         replicas = [
-            {'egress_port': 2, 'instance': 1}, # IPv4
-            {'egress_port': 3, 'instance': 1}, # IPv6
-            {'egress_port': 4, 'instance': 1}, # Tunnel
-            {'egress_port': 5, 'instance': 1}  # VXLAN
+            {'egress_port': 2, 'instance': 3}, # IPv4
+            {'egress_port': 3, 'instance': 3}, # IPv6
+            {'egress_port': 4, 'instance': 3}, # Tunnel
+            {'egress_port': 5, 'instance': 3}  # VXLAN
         ]
         
         for sw_name in ['s1', 's2']:
@@ -613,20 +613,15 @@ class IPv4Controller:
                         # I'll try to find the metadata ID.
                         # Usually "egress_port" is 1.
                         
-                        # switch.PacketOut(payload, {"egress_port": out_port})?
-                        # The helper PacketOut takes 'metadatas' as a list of dicts?
-                        # No, the helper PacketOut takes 'payload' and 'metadatas'.
-                        # 'metadatas' is a dict {metadata_name: value} if helper supports it?
-                        # Looking at switch.py: PacketOut(self, payload, metadatas)
-                        # It constructs p4runtime_pb2.PacketOut().
-                        # It doesn't seem to process metadatas into protobuf fields?
-                        # Wait, I read switch.py:
-                        # def PacketOut(self, payload, metadatas):
-                        #    packet_out = p4runtime_pb2.PacketOut()
-                        #    packet_out.payload = payload
-                        #    ... (it was truncated in my read)
-                        
-                        pass 
+                        # Select winning modality based on hash
+                        modality = chksum % 4 + 2  # 2,3,4,5 for IPv4,IPv6,Yequdesu,VXLAN
+                        print(f"[{sw_name}] Winning modality: {modality}")
+
+                        # Send PacketOut to h2 via winning modality port
+                        # egress_port metadata ID is typically 1 for standard_metadata.egress_spec
+                        metadata = [{'id': 1, 'value': modality.to_bytes(4, 'big')}]
+                        switch.PacketOut(payload, metadata)
+                        print(f"[{sw_name}] Sent PacketOut to port {modality}")
             except Exception as e:
                 print(f"Error in PacketIn handler for {sw_name}: {e}")
                 sleep(1)
