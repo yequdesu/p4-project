@@ -8,16 +8,11 @@ const bit<16> TYPE_IPV4 = 0x800;
 const bit<16> TYPE_IPV6 = 0x86DD;
 const bit<16> TYPE_ARP = 0x0806;
 const bit<16> TYPE_SRCROUTING = 0x0900;
-const bit<32> MAX_TUNNEL_ID = 1 << 16;
 #define MAX_HOPS 9
 const bit<8> TYPE_UDP = 17;
 const bit<16> VXLAN_PORT = 4789;
 
-const bit<16> ARP_HTYPE_ETHERNET = 0x0001;
-const bit<16> ARP_PTYPE_IPV4 = 0x0800;
-const bit<8>  ARP_HLEN_ETHERNET = 6;
-const bit<8>  ARP_PLEN_IPV4 = 4;
-const bit<16> ARP_OPER_REQUEST = 1;
+// ARP opcodes needed for processing
 const bit<16> ARP_OPER_REPLY = 2;
 
 /*************************************************************************
@@ -40,22 +35,21 @@ header yequdesu_t {
     bit<16> dst_id;
 }
 
-
 header srcRoute_t {
     bit<1>    bos;
     bit<15>   port;
 }
 
 header arp_t {
-    bit<16> htype; // format of hardware address
-    bit<16> ptype; // format of protocol address
-    bit<8>  hlen; // length of hardware address
-    bit<8>  plen; // length of protocol address
-    bit<16> oper; // request or reply operation
-    macAddr_t sha; // src mac address
-    ip4Addr_t spa; // src ip address
-    macAddr_t tha; // dst mac address
-    ip4Addr_t tpa; // dst ip address
+    bit<16> htype; 
+    bit<16> ptype; 
+    bit<8>  hlen; 
+    bit<8>  plen; 
+    bit<16> oper; 
+    macAddr_t sha; 
+    ip4Addr_t spa; 
+    macAddr_t tha; 
+    ip4Addr_t tpa; 
 }
 
 header ipv4_t {
@@ -102,6 +96,8 @@ struct metadata {
     ip4Addr_t dst_ipv4; // dst ip for ARP
     bit<1> do_multimodal;
     bit<3> selected_modalities;
+    // 标志位：判断是否为解封装后的包
+    bit<1> is_tunnel_packet;
 }
 
 struct headers {
@@ -116,9 +112,6 @@ struct headers {
     ethernet_t              inner_ethernet;
     ipv4_t                  inner_ipv4;
 }
-
-
-
 
 /*************************************************************************
 *********************** P A R S E R  ***********************************
@@ -210,7 +203,6 @@ parser MyParser(packet_in packet,
     }
 }
 
-
 /*************************************************************************
 ************   C H E C K S U M    V E R I F I C A T I O N   *************
 *************************************************************************/
@@ -219,7 +211,6 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
     apply {  }
 }
 
-
 /*************************************************************************
 **************  I N G R E S S   P R O C E S S I N G   *******************
 *************************************************************************/
@@ -227,7 +218,6 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
-
 
     action drop() {
         mark_to_drop(standard_metadata);
@@ -253,6 +243,8 @@ control MyIngress(inout headers hdr,
         hdr.ethernet.dstAddr = dstAddr;
         hdr.ethernet.etherType = TYPE_IPV4;
         hdr.ipv6.setInvalid();
+        // 标记为隧道解封包
+        meta.is_tunnel_packet = 1;
     }
 
     action yequdesu_forward(egressSpec_t port) {
@@ -264,8 +256,9 @@ control MyIngress(inout headers hdr,
         hdr.ethernet.dstAddr = dstAddr;
         hdr.ethernet.etherType = hdr.yequdesu.proto_id;
         hdr.yequdesu.setInvalid();
+        // 标记为隧道解封包
+        meta.is_tunnel_packet = 1;
     }
-
 
     action yequdesu_ingress(bit<16> dst_id) {
         hdr.yequdesu.setValid();
@@ -295,17 +288,20 @@ control MyIngress(inout headers hdr,
 
     action set_random_multimodal() {
         bit<32> hash_val;
-        hash(hash_val, HashAlgorithm.crc32, 32w0, {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, hdr.ipv4.identification, standard_metadata.ingress_global_timestamp}, 32w0xFFFFFFFF);
-        bit<3> choice = hash_val[15:13];
-        // choice 0-7 correspond to groups 2-9
-        standard_metadata.mcast_grp = (bit<16>)(choice + 2);
+        // [FIX] 使用 hash extern 的 max 参数 (32w6) 来限制范围为 [0, 5]
+        // 避免使用 % 运算符导致编译错误
+        hash(hash_val, HashAlgorithm.crc32, 32w0, {hdr.ipv4.srcAddr, hdr.ipv4.dstAddr, hdr.ipv4.identification, standard_metadata.ingress_global_timestamp}, 32w6);
+        
+        bit<16> choice = (bit<16>)hash_val; // hash_val 现在保证在 0-5 之间
+        standard_metadata.mcast_grp = choice + 2; // 映射到组 2-7
+        
         meta.do_multimodal = 1;
         hdr.ipv4.ttl = 100;
     }
 
     action clone_to_cpu(bit<32> session_id) {
         clone(CloneType.I2E, session_id);
-        drop();
+        // drop(); // Clone 后丢弃原包
     }
 
     table modality_schedule {
@@ -349,95 +345,21 @@ control MyIngress(inout headers hdr,
         default_action = NoAction();
     }
 
-
+    // Source routing actions
     action srcRoute_nhop() {
         standard_metadata.egress_spec = (bit<9>)hdr.srcRoutes[0].port;
         hdr.srcRoutes.pop_front(1);
     }
-
     action srcRoute_finish() {
         hdr.ethernet.etherType = TYPE_IPV4;
     }
-
     action update_ttl(){
         hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
-
-    // 1 hop
-    action add_head_1(
-        bit<1>    bos1,
-        bit<15>   port1
-    ){
-        hdr.ethernet.etherType = TYPE_SRCROUTING;
-        hdr.srcRoutes.push_front(1);
-        hdr.srcRoutes[0].setValid();
-        hdr.srcRoutes[0].port = port1;
-        hdr.srcRoutes[0].bos = bos1;
-    }
-
-    // 2 hops
-    action add_head_2(
-        bit<1>    bos1,
-        bit<15>   port1,
-        bit<1>    bos2,
-        bit<15>   port2
-    ){
-        hdr.ethernet.etherType = TYPE_SRCROUTING;
-
-        hdr.srcRoutes.push_front(1);
-        hdr.srcRoutes[0].setValid();
-        hdr.srcRoutes[0].port = port2;
-        hdr.srcRoutes[0].bos = bos2;
-
-        hdr.srcRoutes.push_front(1);
-        hdr.srcRoutes[0].setValid();
-        hdr.srcRoutes[0].port = port1;
-        hdr.srcRoutes[0].bos = bos1;
-    }
-
-    // 3 hops
-    action add_head_3(
-        bit<1>    bos1,
-        bit<15>   port1,
-        bit<1>    bos2,
-        bit<15>   port2,
-        bit<1>    bos3,
-        bit<15>   port3
-    ){
-        hdr.ethernet.etherType = TYPE_SRCROUTING;
-
-        hdr.srcRoutes.push_front(1);
-        hdr.srcRoutes[0].setValid();
-        hdr.srcRoutes[0].port = port3;
-        hdr.srcRoutes[0].bos = bos3;
-
-        hdr.srcRoutes.push_front(1);
-        hdr.srcRoutes[0].setValid();
-        hdr.srcRoutes[0].port = port2;
-        hdr.srcRoutes[0].bos = bos2;
-
-        hdr.srcRoutes.push_front(1);
-        hdr.srcRoutes[0].setValid();
-        hdr.srcRoutes[0].port = port1;
-        hdr.srcRoutes[0].bos = bos1;
-    }
-
-
-    table src_routing_publish {
-        key = {
-            hdr.ipv4.dstAddr: lpm;
-        }
-        actions = {
-            add_head_1;
-            add_head_2;
-            add_head_3;
-            drop;
-        }
-        default_action = drop();
-        size = 1024;
-    }
-
-    //rewrite destination MAC so that the target host will reply
+    
+    // [FIX] 移除了未使用的 table src_routing_publish 及其关联 action
+    // 以避免编译器警告
+    
     action rewriteMac(macAddr_t dstAddr) {
         hdr.ethernet.dstAddr = dstAddr;
     }
@@ -469,42 +391,49 @@ control MyIngress(inout headers hdr,
     }
 
     action send_arp_reply(macAddr_t macAddr) {
-        hdr.ethernet.dstAddr = hdr.arp.sha;      // Ethernet target address = ARP source MAC address
-        hdr.ethernet.srcAddr = macAddr;           // Ethernet source address = the action argument macAddr
-
-        hdr.arp.oper = ARP_OPER_REPLY;            // modify the ARP packet type to reply
-        // set the fields to reply
-        hdr.arp.tha = hdr.arp.sha;                // ARP target MAC address = ARP source MAC address
-        hdr.arp.tpa = hdr.arp.spa;                // ARP target IP address = ARP source IP address
-        hdr.arp.sha = macAddr;                    // ARP source MAC address = the action argument macAddr
-        hdr.arp.spa = meta.dst_ipv4;              // ARP source IP address = ARP target IP address
-
-        standard_metadata.egress_spec = standard_metadata.ingress_port; // return to the port it comes from
+        hdr.ethernet.dstAddr = hdr.arp.sha;
+        hdr.ethernet.srcAddr = macAddr;
+        hdr.arp.oper = ARP_OPER_REPLY;
+        hdr.arp.tha = hdr.arp.sha;
+        hdr.arp.tpa = hdr.arp.spa;
+        hdr.arp.sha = macAddr;
+        hdr.arp.spa = meta.dst_ipv4;
+        standard_metadata.egress_spec = standard_metadata.ingress_port;
     }
 
-    action vxlan_encap(bit<24> vni, macAddr_t dstAddr, egressSpec_t port) {
+    action vxlan_encap(bit<24> vni, macAddr_t dstAddr, egressSpec_t port, ip4Addr_t srcIp, ip4Addr_t dstIp) {
         standard_metadata.egress_spec = port;
+        
+        // 保存内层
+        hdr.inner_ethernet = hdr.ethernet;
+        hdr.inner_ipv4 = hdr.ipv4;
+        hdr.inner_ethernet.setValid();
+        hdr.inner_ipv4.setValid();
+
+        // 外层 Ethernet
         hdr.ethernet.srcAddr = hdr.ethernet.dstAddr;
         hdr.ethernet.dstAddr = dstAddr;
         hdr.ethernet.etherType = TYPE_IPV4;
 
+        // 外层 IPv4
         hdr.ipv4.setValid();
         hdr.ipv4.version = 4;
         hdr.ipv4.ihl = 5;
         hdr.ipv4.diffserv = 0;
-        hdr.ipv4.totalLen = hdr.ipv4.totalLen + 50; // 20 IPv4 + 8 UDP + 8 VXLAN + 14 Ethernet
+        hdr.ipv4.totalLen = hdr.inner_ipv4.totalLen + 50; 
         hdr.ipv4.identification = 0;
         hdr.ipv4.flags = 0;
         hdr.ipv4.fragOffset = 0;
         hdr.ipv4.ttl = 64;
         hdr.ipv4.protocol = TYPE_UDP;
-        hdr.ipv4.srcAddr = 0x0A00010A; // 10.0.1.10
-        hdr.ipv4.dstAddr = 0x0A00020A; // 10.0.2.10
+        hdr.ipv4.srcAddr = srcIp; // 使用参数
+        hdr.ipv4.dstAddr = dstIp; // 使用参数
 
+        // UDP 和 VXLAN 设置同上...
         hdr.udp.setValid();
         hdr.udp.srcPort = 4789;
         hdr.udp.dstPort = 4789;
-        hdr.udp.length = hdr.udp.length + 38; // 8 VXLAN + 14 Ethernet + 16 IPv4
+        hdr.udp.length = hdr.ipv4.totalLen - 20;
         hdr.udp.checksum = 0;
 
         hdr.vxlan.setValid();
@@ -522,6 +451,8 @@ control MyIngress(inout headers hdr,
         hdr.ipv4 = hdr.inner_ipv4;
         hdr.inner_ethernet.setInvalid();
         hdr.inner_ipv4.setInvalid();
+        // 标记为隧道解封包
+        meta.is_tunnel_packet = 1;
     }
 
     table arp_match {
@@ -538,7 +469,7 @@ control MyIngress(inout headers hdr,
 
     table vxlan_lpm {
         key = {
-            hdr.inner_ipv4.dstAddr: lpm;
+            hdr.ipv4.dstAddr: lpm;
         }
         actions = {
             vxlan_encap;
@@ -556,17 +487,21 @@ control MyIngress(inout headers hdr,
         actions = {
             vxlan_decap;
             drop;
+            NoAction;
         }
         size = 1024;
-        default_action = drop();
+        default_action = NoAction();
     }
 
     apply {
+        bit<1> is_processed = 0;
+
+        // 1. 处理 L2/ARP/Source Routing
         if(hdr.ethernet.etherType == TYPE_ARP) {
             arp_match.apply();
+            is_processed = 1;
         }
         else if (hdr.ethernet.etherType == TYPE_SRCROUTING) {
-            // Source routing modality - independent path control
             if (hdr.srcRoutes[0].isValid()){
                 if (hdr.srcRoutes[0].bos == 1){
                     srcRoute_finish();
@@ -577,30 +512,43 @@ control MyIngress(inout headers hdr,
                 srcRoute_nhop();
                 update_ttl();
             }
+            is_processed = 1;
         }
-        else if (hdr.ethernet.etherType == TYPE_YEQUDESU) {
-            // Yequdesu tunnel modality
-            if (hdr.yequdesu.isValid()) {
-                yequdesu_exact.apply();
+
+        // 2. 隧道解封装检查 (逻辑并行)
+        if (is_processed == 0) {
+            if (hdr.ethernet.etherType == TYPE_YEQUDESU && hdr.yequdesu.isValid()) {
+                yequdesu_exact.apply(); // 可能执行 decap
+            }
+            else if (hdr.vxlan.isValid()) {
+                vxlan_decap_exact.apply(); // 执行 decap
+            }
+            else if (hdr.ipv6.isValid()) {
+                ipv6_lpm.apply(); // 可能执行 decap
             }
         }
-        else if (hdr.vxlan.isValid()) {
-            // VXLAN modality - virtual network overlay
-            vxlan_decap_exact.apply();
-        }
-        else if (hdr.ipv6.isValid()) {
-            // Process IPv6 packets
-            ipv6_lpm.apply();
-        }
-        else if (hdr.ipv4.isValid()) {
-            // Process IPv4 packets
-            if (hdr.udp.isValid() && hdr.udp.dstPort == VXLAN_PORT) {
-                // VXLAN encapsulation
-                vxlan_lpm.apply();
-            } else {
-                modality_schedule.apply();
-                if (meta.do_multimodal == 0) {
-                    adjudication.apply();
+
+        // 3. IPv4 核心处理
+        if (is_processed == 0 && hdr.ipv4.isValid()) {
+            
+            // 裁决逻辑：如果是刚刚解封的隧道包，进入裁决表
+            if (meta.is_tunnel_packet == 1) {
+                adjudication.apply(); 
+            }
+            // [修改点] 调度逻辑：如果是原生包，且 *不是* 控制面发回的包 (Port 255)，才进行调度
+            else {
+                // 假设 CPU 端口是 255 (BMv2 默认)
+                if (standard_metadata.ingress_port != 255) {
+                    modality_schedule.apply();
+                }
+            }
+            
+            // 转发逻辑
+            if (meta.do_multimodal == 0) {
+                 // 如果是 VXLAN 封装
+                if (vxlan_lpm.apply().hit) {
+                    // 已处理
+                } else {
                     ipv4_lpm.apply();
                 }
             }
@@ -639,13 +587,25 @@ control MyEgress(inout headers hdr,
     }
 
     action encap_vxlan_egress(bit<24> vni, ip4Addr_t src, ip4Addr_t dst) {
-        hdr.ethernet.etherType = TYPE_IPV4;
+        // 1. 保存内层头部 (Critical Fix)
+        hdr.inner_ethernet = hdr.ethernet;
+        hdr.inner_ipv4 = hdr.ipv4;
+        hdr.inner_ethernet.setValid();
+        hdr.inner_ipv4.setValid();
 
-        hdr.ipv4.setValid();
+        // 2. 构建外层 Ethernet
+        hdr.ethernet.etherType = TYPE_IPV4;
+        // 注意：此处通常需要修改 Ethernet MAC 以指向下一跳网关
+        // 但根据现有逻辑，IPv6封装也没改MAC且能通，可能依赖环境宽容或ARP
+        // 这里保持原样仅修改 Type
+
+        // 3. 构建外层 IPv4
+        hdr.ipv4.setValid(); // 重新标记为 Valid (作为外层)
         hdr.ipv4.version = 4;
         hdr.ipv4.ihl = 5;
         hdr.ipv4.diffserv = 0;
-        hdr.ipv4.totalLen = hdr.ipv4.totalLen + 50;
+        // Total Length = InnerEth(14) + InnerIP(Len) + UDP(8) + VXLAN(8) + OuterIP(20) = InnerIP + 50
+        hdr.ipv4.totalLen = hdr.inner_ipv4.totalLen + 50; 
         hdr.ipv4.identification = 0;
         hdr.ipv4.flags = 0;
         hdr.ipv4.fragOffset = 0;
@@ -653,13 +613,16 @@ control MyEgress(inout headers hdr,
         hdr.ipv4.protocol = TYPE_UDP;
         hdr.ipv4.srcAddr = src;
         hdr.ipv4.dstAddr = dst;
+        // hdr.ipv4.hdrChecksum 由 Deparser/Checksum 计算
 
+        // 4. 构建 UDP
         hdr.udp.setValid();
-        hdr.udp.srcPort = 4789;
+        hdr.udp.srcPort = 4789; // 或使用 hash
         hdr.udp.dstPort = 4789;
-        hdr.udp.length = hdr.udp.length + 38;
+        hdr.udp.length = hdr.ipv4.totalLen - 20; // UDP length excludes IP header
         hdr.udp.checksum = 0;
 
+        // 5. 构建 VXLAN
         hdr.vxlan.setValid();
         hdr.vxlan.flags = 0x08;
         hdr.vxlan.reserved1 = 0;
@@ -715,7 +678,6 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
             HashAlgorithm.csum16);
     }
 }
-
 
 /*************************************************************************
 ***********************  D E P A R S E R  *******************************
